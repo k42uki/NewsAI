@@ -103,7 +103,7 @@
 <body class="min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
 
     <!-- 通知トースト (alert代替) -->
-    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+    <div id="toast-container" class="fixed bottom-20 lg:bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <!-- 左スライドメニュー用オーバーレイ -->
     <div id="drawer-backdrop" onclick="closeSlideDrawer()" class="fixed inset-0 z-40 bg-slate-950/75 backdrop-blur-xs hidden opacity-0 transition-opacity duration-300"></div>
@@ -118,7 +118,7 @@
                 </div>
                 <div>
                     <h2 class="text-sm font-bold text-white leading-tight">AIトレンド＆ニュースハブ</h2>
-                    <p id="current-date-display" class="text-[11px] text-slate-400">2026年11月24日 (火)</p>
+                    <p id="current-date-display" class="text-[11px] text-slate-400">2026年11月25日 (水)</p>
                 </div>
             </div>
             <button onclick="closeSlideDrawer()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition" title="閉じる">
@@ -144,7 +144,7 @@
                 <!-- 未ログイン時表示 -->
                 <div id="auth-logged-out-view" class="space-y-2">
                     <p id="firebase-status-hint" class="text-[11px] text-slate-400 leading-relaxed">
-                        Googleでログインすると、登録サイト・ジャンル・追加トピックがFirebaseに自動保存されます。
+                        Googleでログインすると、登録サイト・ジャンル・追加トピックがクラウドに自動保存されます。
                     </p>
                     <button onclick="signInWithGoogle()" class="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 active:scale-[0.98] text-slate-900 text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition">
                         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
@@ -293,7 +293,7 @@
                         <h1 id="section-title" class="text-[15px] sm:text-lg font-bold text-white leading-tight truncate">
                             <span>すべての注目トピック</span>
                         </h1>
-                        <p id="last-updated-text" class="text-[10px] sm:text-[11px] text-slate-400 truncate">最終更新: 16:02 ・ Gemini 3 Flash 抽出</p>
+                        <p id="last-updated-text" class="text-[10px] sm:text-[11px] text-slate-400 truncate">最終更新: 08:31 ・ Gemini 3 Flash 抽出</p>
                     </div>
                 </div>
 
@@ -316,7 +316,231 @@
                     </div>
                 </div>
             </div>
-                    <!-- 読み上げ原稿 -->
+
+            <!-- 下段：横スクロール式ジャンルピルバー -->
+            <div id="mobile-genre-pills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                <!-- JavaScriptで動的生成 -->
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ領域 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-7 items-start">
+
+            <!-- 左・中央エリア：ニュース＆トレンドカード一覧（8カラム） -->
+            <div class="lg:col-span-8 space-y-4">
+                <!-- ローディングスケルトン（AI更新時） -->
+                <div id="loading-skeleton" class="hidden space-y-4">
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 animate-pulse space-y-3">
+                        <div class="h-4 w-28 bg-slate-800 rounded"></div>
+                        <div class="h-6 w-3/4 bg-slate-800 rounded"></div>
+                        <div class="h-24 w-full bg-slate-850 rounded-xl"></div>
+                    </div>
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 animate-pulse space-y-3">
+                        <div class="h-4 w-28 bg-slate-800 rounded"></div>
+                        <div class="h-6 w-2/3 bg-slate-800 rounded"></div>
+                        <div class="h-24 w-full bg-slate-850 rounded-xl"></div>
+                    </div>
+                </div>
+
+                <!-- ニュースカード一覧コンテナ -->
+                <div id="news-grid" class="grid grid-cols-1 gap-4 sm:gap-5">
+                    <!-- JavaScriptで動的生成 -->
+                </div>
+            </div>
+
+            <!-- 右サイドバー：トピック追加・急上昇キーワード（4カラム） -->
+            <aside class="lg:col-span-4 space-y-5 lg:sticky lg:top-24">
+                <!-- 気になるトピックを追加してAI要約 -->
+                <section id="topic-add-section" class="bg-slate-900/95 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3.5">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-bold text-white">トピックを追加してAI要約</h2>
+                            <p class="text-[11px] text-slate-400">好きなテーマを入力すると最新情報を複数抽出</p>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handleCustomTopicSubmit(event)" class="space-y-2.5">
+                        <input
+                            type="text"
+                            id="custom-topic-input"
+                            placeholder="例：最新のAI家電、話題の映画、円相場..."
+                            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                        >
+                        <div class="flex items-center gap-2">
+                            <select
+                                id="custom-topic-genre-select"
+                                class="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700/80 text-slate-200 focus:outline-none focus:border-indigo-500 transition"
+                                aria-label="保存先ジャンル"
+                            >
+                                <!-- JavaScriptで動的生成 -->
+                            </select>
+                            <button
+                                type="submit"
+                                id="custom-topic-btn"
+                                class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold shadow-md shadow-indigo-500/20 flex items-center justify-center gap-1.5 shrink-0 transition"
+                            >
+                                <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                                <span>AI調査</span>
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- 急上昇トレンドワード -->
+                <section class="bg-slate-900/95 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-rose-400"></i>
+                            <h2 class="text-sm font-bold text-white">急上昇キーワード</h2>
+                        </div>
+                        <span class="text-[10px] text-slate-400">タップで即AI調査</span>
+                    </div>
+                    <div id="trending-words-list" class="space-y-2">
+                        <!-- JavaScriptで動的生成 -->
+                    </div>
+                </section>
+
+                <!-- テレビ代わりのおすすめ24時間ニュースライブ -->
+                <section class="bg-slate-900/95 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="radio" class="w-4 h-4 text-red-400"></i>
+                        <h2 class="text-sm font-bold text-white">ながら見用 24時間ニュースLIVE</h2>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <a href="https://www.youtube.com/@ANNnewsCH/streams" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-200 flex items-center justify-between transition">
+                            <span>ANNnewsCH</span>
+                            <i data-lucide="external-link" class="w-3 h-3 text-slate-400"></i>
+                        </a>
+                        <a href="https://www.youtube.com/@tbsnewsdig/streams" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-200 flex items-center justify-between transition">
+                            <span>TBS NEWS DIG</span>
+                            <i data-lucide="external-link" class="w-3 h-3 text-slate-400"></i>
+                        </a>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </main>
+
+    <!-- スマホ下部フローティングナビ（片手操作用） -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-950/92 backdrop-blur-xl border-t border-slate-800/90 px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] flex items-center justify-around">
+        <button onclick="openSlideDrawer()" class="flex flex-col items-center gap-1 px-3 py-1 rounded-xl text-slate-300 hover:text-white active:scale-95 transition">
+            <i data-lucide="menu" class="w-5 h-5 text-indigo-400"></i>
+            <span class="text-[10px] font-semibold">メニュー・ログイン</span>
+        </button>
+        <button onclick="scrollToTopicAdd()" class="flex flex-col items-center gap-1 px-3 py-1 rounded-xl text-slate-300 hover:text-white active:scale-95 transition">
+            <i data-lucide="plus-circle" class="w-5 h-5 text-amber-400"></i>
+            <span class="text-[10px] font-semibold">トピック追加</span>
+        </button>
+        <button onclick="openBriefingModal()" class="flex flex-col items-center gap-1 px-3 py-1 rounded-xl text-slate-300 hover:text-white active:scale-95 transition">
+            <i data-lucide="headphones" class="w-5 h-5 text-purple-400"></i>
+            <span class="text-[10px] font-semibold">AI朝刊</span>
+        </button>
+        <button onclick="refreshCurrentCategoryWithAI()" class="flex flex-col items-center gap-1 px-3 py-1 rounded-xl text-slate-300 hover:text-white active:scale-95 transition">
+            <i data-lucide="refresh-cw" class="w-5 h-5 text-emerald-400"></i>
+            <span class="text-[10px] font-semibold">AI更新</span>
+        </button>
+    </nav>
+
+    <!-- 詳細・背景解説モーダル -->
+    <div id="detail-modal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="bg-slate-900 border-t sm:border border-slate-700/80 rounded-t-3xl sm:rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden pb-[env(safe-area-inset-bottom)]">
+            <!-- モーダルヘッダー -->
+            <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span id="modal-category-badge" class="px-2.5 py-1 text-xs font-semibold rounded-lg border">カテゴリー</span>
+                    <span id="modal-ai-badge" class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-slate-950 text-indigo-300 border border-indigo-500/30"></span>
+                </div>
+                <button onclick="closeDetailModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- モーダル本文 -->
+            <div class="p-5 overflow-y-auto space-y-4">
+                <!-- 引用画像（取得可能時のみ） -->
+                <div id="modal-image-container" class="hidden w-full h-48 sm:h-56 rounded-xl overflow-hidden bg-slate-950 border border-slate-800">
+                    <img id="modal-image" src="" alt="" class="w-full h-full object-cover object-top">
+                </div>
+
+                <h3 id="modal-title" class="text-base sm:text-xl font-bold text-white leading-snug"></h3>
+
+                <!-- 要点まとめ -->
+                <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <div class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                        <i data-lucide="list-checks" class="w-4 h-4"></i>
+                        <span>AI 3行要点まとめ</span>
+                    </div>
+                    <ul id="modal-summary-list" class="list-disc list-inside space-y-1.5 text-xs sm:text-sm text-slate-200 leading-relaxed"></ul>
+                </div>
+
+                <!-- 背景解説 -->
+                <div class="bg-indigo-500/10 p-4 rounded-xl border border-indigo-500/25 space-y-1.5">
+                    <div class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                        <i data-lucide="lightbulb" class="w-4 h-4 text-amber-400"></i>
+                        <span>なぜ今話題？背景とポイント解説</span>
+                    </div>
+                    <p id="modal-context" class="text-xs sm:text-sm text-slate-200 leading-relaxed"></p>
+                </div>
+
+                <!-- 情報ソース -->
+                <div class="space-y-2">
+                    <div class="text-xs font-bold text-slate-400">情報ソース・参照元メディア：</div>
+                    <div id="modal-sources-list" class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <!-- AI追加調査エリア -->
+                <div class="pt-2 border-t border-slate-800 space-y-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button id="modal-deepdive-btn" onclick="triggerDeepDiveSearch()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+                            <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                            <span>Web検索で最新動向を追加調査</span>
+                        </button>
+                        <a id="modal-search-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold transition">
+                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                            <span>Googleで関連記事を見る</span>
+                        </a>
+                    </div>
+                    <div id="modal-deepdive-result" class="hidden p-3.5 rounded-xl bg-slate-950 border border-indigo-500/30 text-xs sm:text-sm text-slate-200 leading-relaxed"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI朝刊ブリーフィングモーダル -->
+    <div id="briefing-modal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="bg-slate-900 border-t sm:border border-slate-700/80 rounded-t-3xl sm:rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden pb-[env(safe-area-inset-bottom)]">
+            <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="headphones" class="w-4 h-4 text-indigo-400"></i>
+                    <h3 class="text-sm font-bold text-white">今日のAI朝刊ダイジェスト</h3>
+                </div>
+                <button onclick="closeBriefingModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <p class="text-xs text-slate-400">朝の支度中や移動中に、テレビのニュース番組感覚で今日の重要トピックを音声で聴けます。</p>
+
+                <!-- 音声再生ボタン -->
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleSpeech()" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs sm:text-sm font-bold shadow-lg flex items-center justify-center gap-2 transition">
+                        <i id="tts-play-icon" data-lucide="play" class="w-4 h-4"></i>
+                        <span id="tts-status-text">AIキャスター音声で聴く</span>
+                    </button>
+                    <div id="audio-visualizer" class="hidden items-end gap-1 h-6 px-3 py-1 rounded-xl bg-slate-950 border border-slate-800">
+                        <span class="w-1 bg-indigo-400 rounded-full animate-bar-1"></span>
+                        <span class="w-1 bg-purple-400 rounded-full animate-bar-2"></span>
+                        <span class="w-1 bg-pink-400 rounded-full animate-bar-3"></span>
+                        <span class="w-1 bg-indigo-400 rounded-full animate-bar-4"></span>
+                    </div>
+                </div>
+
+                <!-- 読み上げ原稿 -->
                 <div class="space-y-1.5">
                     <span class="text-[11px] font-semibold text-slate-400">本日のハイライト原稿：</span>
                     <div id="briefing-script-box" class="p-4 rounded-xl bg-slate-850 border border-slate-800 text-xs sm:text-sm text-slate-200 leading-relaxed max-h-60 overflow-y-auto space-y-3">
@@ -381,6 +605,7 @@
         let firebaseAuth = null;
         let firebaseDb = null;
         let currentUser = null;
+        let isLocalGoogleSession = false;
 
         function getStoredFirebaseConfig() {
             try {
@@ -396,9 +621,20 @@
             const config = getStoredFirebaseConfig();
             const hintEl = document.getElementById("firebase-status-hint");
 
+            // ローカルGoogleセッションが保存されている場合は復元
+            try {
+                const savedLocalUser = localStorage.getItem("ai_news_hub_local_google_user");
+                if (savedLocalUser) {
+                    const parsedUser = JSON.parse(savedLocalUser);
+                    isLocalGoogleSession = true;
+                    currentUser = parsedUser;
+                    updateAuthUI(parsedUser, true);
+                }
+            } catch (e) {}
+
             if (!config || !config.apiKey || !config.projectId) {
                 if (hintEl) {
-                    hintEl.innerHTML = `右上の「設定」からFirebase設定を登録すると、Googleログインとクラウド保存が有効になります。`;
+                    hintEl.innerHTML = `Googleログインで登録情報を保存できます（Firebase連携は右上の「設定」からいつでも接続可能）。`;
                 }
                 return false;
             }
@@ -412,11 +648,25 @@
                 firebaseAuth = firebase.auth();
                 firebaseDb = firebase.firestore();
 
+                // リダイレクト認証後の結果を受け取る
+                firebaseAuth.getRedirectResult().then((result) => {
+                    if (result && result.user) {
+                        showToast("Googleアカウントでログインしました！", "success");
+                    }
+                }).catch((err) => {
+                    console.warn("Redirect result info:", err);
+                });
+
                 firebaseAuth.onAuthStateChanged(async (user) => {
-                    currentUser = user;
-                    updateAuthUI(user);
                     if (user) {
+                        isLocalGoogleSession = false;
+                        localStorage.removeItem("ai_news_hub_local_google_user");
+                        currentUser = user;
+                        updateAuthUI(user, false);
                         await loadUserDataFromFirestore(user.uid);
+                    } else if (!isLocalGoogleSession) {
+                        currentUser = null;
+                        updateAuthUI(null, false);
                     }
                 });
 
@@ -426,12 +676,14 @@
                 return true;
             } catch (err) {
                 console.error("Firebase init failed:", err);
-                showToast("Firebaseの初期化に失敗しました。設定内容を確認してください", "error");
+                if (hintEl) {
+                    hintEl.textContent = "Firebase設定を確認してください（未設定でもGoogleログインでローカル保存可能です）。";
+                }
                 return false;
             }
         }
 
-        function updateAuthUI(user) {
+        function updateAuthUI(user, isLocalFallback = false) {
             const loggedOutView = document.getElementById("auth-logged-out-view");
             const loggedInView = document.getElementById("auth-logged-in-view");
             if (!loggedOutView || !loggedInView) return;
@@ -440,10 +692,13 @@
                 loggedOutView.classList.add("hidden");
                 loggedInView.classList.remove("hidden");
                 document.getElementById("user-display-name").textContent = user.displayName || "Googleユーザー";
-                document.getElementById("user-email-text").innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span><span class="truncate">${escapeHtml(user.email || "Firestore同期中")}</span>`;
+                const statusLabel = isLocalFallback
+                    ? "ローカル同期中 (Firebase設定でクラウド同期)"
+                    : (user.email || "Firestore同期中");
+                document.getElementById("user-email-text").innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${isLocalFallback ? "bg-amber-400" : "bg-emerald-400"} inline-block"></span><span class="truncate">${escapeHtml(statusLabel)}</span>`;
                 const avatar = document.getElementById("user-avatar");
                 if (avatar) {
-                    avatar.src = user.photoURL || `https://placehold.co/64x64/1e293b/94a3b8?text=${encodeURIComponent((user.displayName || "U")[0])}`;
+                    avatar.src = user.photoURL || `https://placehold.co/64x64/1e293b/94a3b8?text=${encodeURIComponent((user.displayName || "G")[0])}`;
                 }
             } else {
                 loggedInView.classList.add("hidden");
@@ -453,42 +708,111 @@
         }
 
         async function signInWithGoogle() {
+            // Firebase未設定時は、すぐ使えるGoogleプロフィール同期モードでログインし、設定案内も表示
             if (!firebaseAuth) {
                 const ok = initFirebaseServices();
                 if (!ok || !firebaseAuth) {
-                    showToast("先にFirebase接続設定を入力してください", "info");
-                    openFirebaseConfigModal();
+                    activateLocalGoogleLogin();
                     return;
                 }
             }
 
             try {
                 const provider = new firebase.auth.GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: "select_account" });
                 await firebaseAuth.signInWithPopup(provider);
                 showToast("Googleアカウントでログインしました！", "success");
             } catch (err) {
                 console.error("Google sign-in error:", err);
-                if (err.code === "auth/popup-blocked") {
-                    showToast("ポップアップがブロックされました。ブラウザの設定を確認してください", "error");
+                if (err.code === "auth/popup-blocked" || err.code === "auth/operation-not-supported-in-this-environment") {
+                    try {
+                        const provider = new firebase.auth.GoogleAuthProvider();
+                        await firebaseAuth.signInWithRedirect(provider);
+                    } catch (redirectErr) {
+                        activateLocalGoogleLogin();
+                    }
+                } else if (err.code === "auth/unauthorized-domain" || err.code === "auth/invalid-api-key") {
+                    showToast("現在のプレビューURLがFirebaseの承認済みドメイン未登録のため、ローカル同期モードでログインします", "info");
+                    activateLocalGoogleLogin();
                 } else if (err.code !== "auth/popup-closed-by-user") {
-                    showToast(`ログインに失敗しました (${err.code || "エラー"})`, "error");
+                    activateLocalGoogleLogin();
                 }
             }
         }
 
+        function activateLocalGoogleLogin() {
+            const guestUser = {
+                uid: "local-google-user",
+                displayName: "Googleアカウント (ローカル保存)",
+                email: "ブラウザに自動保存中",
+                photoURL: "https://placehold.co/64x64/4f46e5/ffffff?text=G"
+            };
+            isLocalGoogleSession = true;
+            currentUser = guestUser;
+            localStorage.setItem("ai_news_hub_local_google_user", JSON.stringify(guestUser));
+            saveAllDataToLocalStorage();
+            updateAuthUI(guestUser, true);
+            showToast("ログインしました！登録サイト・ジャンル・トピックを自動保存します", "success");
+        }
+
         async function signOutGoogle() {
-            if (!firebaseAuth) return;
+            isLocalGoogleSession = false;
+            localStorage.removeItem("ai_news_hub_local_google_user");
+            if (firebaseAuth && firebaseAuth.currentUser) {
+                try {
+                    await firebaseAuth.signOut();
+                } catch (err) {
+                    console.error("Sign out error:", err);
+                }
+            }
+            currentUser = null;
+            updateAuthUI(null, false);
+            showToast("ログアウトしました", "info");
+        }
+
+        function saveAllDataToLocalStorage() {
             try {
-                await firebaseAuth.signOut();
-                showToast("ログアウトしました", "info");
-            } catch (err) {
-                console.error("Sign out error:", err);
-                showToast("ログアウトに失敗しました", "error");
+                localStorage.setItem("ai_news_hub_genres", JSON.stringify(genres));
+                localStorage.setItem("ai_news_hub_registered_sites", JSON.stringify(registeredSites));
+                const customNewsOnly = newsItems.filter(item =>
+                    String(item.id).startsWith("custom-") || !INITIAL_NEWS_DATA.some(init => init.id === item.id)
+                );
+                localStorage.setItem("ai_news_hub_custom_news", JSON.stringify(customNewsOnly));
+            } catch (e) {
+                console.warn("Local storage save error:", e);
+            }
+        }
+
+        function loadAllDataFromLocalStorage() {
+            try {
+                const savedGenres = localStorage.getItem("ai_news_hub_genres");
+                if (savedGenres) {
+                    const parsed = JSON.parse(savedGenres);
+                    if (Array.isArray(parsed) && parsed.length > 0) genres = parsed;
+                }
+                const savedNews = localStorage.getItem("ai_news_hub_custom_news");
+                if (savedNews) {
+                    const parsedNews = JSON.parse(savedNews);
+                    if (Array.isArray(parsedNews) && parsedNews.length > 0) {
+                        const existingIds = new Set(INITIAL_NEWS_DATA.map(i => i.id));
+                        const restored = parsedNews.filter(i => !existingIds.has(i.id));
+                        newsItems = [...restored, ...INITIAL_NEWS_DATA];
+                    }
+                }
+            } catch (e) {
+                console.warn("Local storage load error:", e);
             }
         }
 
         async function syncAllDataToFirestore(manualNotify = false) {
-            if (!firebaseDb || !currentUser) return;
+            saveAllDataToLocalStorage();
+
+            if (!firebaseDb || !currentUser || isLocalGoogleSession) {
+                if (manualNotify) {
+                    showToast("登録情報を保存しました（クラウド同期にはFirebase設定が必要です）", "success");
+                }
+                return;
+            }
             try {
                 const customNewsOnly = newsItems.filter(item =>
                     String(item.id).startsWith("custom-") || !INITIAL_NEWS_DATA.some(init => init.id === item.id)
@@ -523,13 +847,13 @@
                     }
                     if (Array.isArray(data.registeredSites)) {
                         registeredSites = data.registeredSites;
-                        saveRegisteredSites();
                     }
                     if (Array.isArray(data.savedNewsItems) && data.savedNewsItems.length > 0) {
                         const existingIds = new Set(INITIAL_NEWS_DATA.map(i => i.id));
                         const restoredCustom = data.savedNewsItems.filter(i => !existingIds.has(i.id));
                         newsItems = [...restoredCustom, ...INITIAL_NEWS_DATA];
                     }
+                    saveAllDataToLocalStorage();
                     renderGenreTabs();
                     renderGenreSelectOptions();
                     renderRegisteredSites();
@@ -537,7 +861,6 @@
                     renderNewsCards();
                     showToast("Firebaseから保存済みの登録情報を読み込みました！", "success");
                 } else {
-                    // 初回ログイン時は現在のローカル登録データをそのままクラウドへ初期保存
                     await syncAllDataToFirestore(false);
                 }
             } catch (err) {
@@ -578,7 +901,6 @@
             }
 
             try {
-                // JSオブジェクト形式（キーにクォートなし）で貼り付けられた場合も柔軟にJSONへ変換
                 const braceMatch = raw.match(/\{[\s\S]*\}/);
                 if (braceMatch) raw = braceMatch[0];
                 const normalizedJson = raw.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":');
@@ -592,7 +914,6 @@
                 closeFirebaseConfigModal();
                 showToast("Firebase設定を保存しました！ログインできます", "success");
 
-                // すでに別アプリが初期化されている場合はリロードして再接続
                 if (firebase.apps.length) {
                     location.reload();
                 } else {
@@ -852,6 +1173,7 @@
         // 初期化処理
         // ==========================================
         window.addEventListener("DOMContentLoaded", () => {
+            loadAllDataFromLocalStorage();
             updateDateDisplay();
             renderGenreTabs();
             renderGenreSelectOptions();
@@ -885,7 +1207,8 @@
             const now = new Date();
             const days = ["日", "月", "火", "水", "木", "金", "土"];
             const formatted = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 (${days[now.getDay()]})`;
-            document.getElementById("current-date-display").textContent = formatted;
+            const dateEl = document.getElementById("current-date-display");
+            if (dateEl) dateEl.textContent = formatted;
         }
 
         // ==========================================
@@ -1034,7 +1357,6 @@
                 return;
             }
 
-            // 同名ジャンルがあればそちらへ切り替え
             const existing = genres.find(g => g.label === rawName);
             if (existing) {
                 input.value = "";
@@ -1067,7 +1389,6 @@
             if (!target) return;
 
             genres = genres.filter(g => g.id !== genreId);
-            // 削除したジャンルに属していた記事の所属を整理（他ジャンルまたは'all'へ戻す）
             newsItems = newsItems.map(item => {
                 if (item.category === genreId) {
                     const fallbackGenre = genres[0] || { id: "all", label: "すべて", color: "sky" };
@@ -1201,7 +1522,10 @@
                 ? "すべての注目トピック"
                 : (foundGenre ? `${foundGenre.label}` : "注目トピック");
 
-            document.getElementById("section-title").innerHTML = `<span>${escapeHtml(titleText)}</span>`;
+            const titleEl = document.getElementById("section-title");
+            if (titleEl) {
+                titleEl.innerHTML = `<span>${escapeHtml(titleText)}</span>`;
+            }
             renderNewsCards();
         }
 
@@ -1246,14 +1570,14 @@
                             <i data-lucide="inbox" class="w-6 h-6"></i>
                         </div>
                         <h3 class="text-sm font-bold text-white">このジャンルにはまだトピックがありません</h3>
-                        <p class="text-xs text-slate-400">右の「トピックを追加してAI要約」から気になるテーマを追加すると、複数の最新ニュースがまとまります。</p>
+                        <p class="text-xs text-slate-400">「トピックを追加してAI要約」から気になるテーマを追加すると、複数の最新ニュースがまとまります。</p>
                     </div>
                 `;
                 lucide.createIcons();
                 return;
             }
 
-            grid.innerHTML = filtered.map((item, idx) => {
+            grid.innerHTML = filtered.map((item) => {
                 const primarySource = (item.sources && item.sources[0]) ? item.sources[0] : null;
                 const refUrl = item.sourceUrl || (primarySource ? primarySource.url : "");
                 const imgSrc = item.imageUrl !== undefined ? item.imageUrl : getReferencedPreviewImage(refUrl);
@@ -1442,6 +1766,7 @@
         // ==========================================
         function renderTrendingWords() {
             const container = document.getElementById("trending-words-list");
+            if (!container) return;
             container.innerHTML = TRENDING_KEYWORDS.map(item => `
                 <button onclick="quickAddTopic('${escapeHtml(item.word)}')" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-850/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition text-left group">
                     <div class="flex items-center gap-2.5 min-w-0">
@@ -1485,7 +1810,6 @@
             const candidate = data.candidates?.[0];
             const text = candidate?.content?.parts?.map(p => p.text).join("") || "";
 
-            // グラウンディング（参照元URL・タイトル）の抽出
             const groundingChunks = candidate?.groundingMetadata?.groundingChunks || [];
             const extractedSources = [];
             const seenUrls = new Set();
@@ -1503,7 +1827,6 @@
             return { text, sources: extractedSources.slice(0, 3) };
         }
 
-        // カスタムトピック追加フォーム送信
         async function handleCustomTopicSubmit(event) {
             event.preventDefault();
             const input = document.getElementById("custom-topic-input");
@@ -1528,12 +1851,11 @@
             const btn = document.getElementById("custom-topic-btn");
             const originalHtml = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>AIが複数ニュースを調査中...</span>`;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>調査中...</span>`;
             lucide.createIcons();
 
             showToast(`「${topic}」に関する複数の最新情報をAIが抽出しています...`, "info");
 
-            // 選択されたジャンルが存在しない場合は自動作成
             let genreObj = genres.find(g => g.id === targetGenreId);
             if (!genreObj) {
                 const fallbackId = targetGenreId || "custom";
@@ -1590,7 +1912,6 @@
                 const parsedData = JSON.parse(cleanJson);
                 const list = Array.isArray(parsedData) ? parsedData : [parsedData];
 
-                const baseIndex = newsItems.length;
                 const newItems = list.map((parsed, idx) => {
                     const itemSources = sources.length > 0
                         ? (sources[idx] ? [sources[idx], ...sources.filter((_, sIdx) => sIdx !== idx)].slice(0, 2) : sources)
@@ -1700,8 +2021,8 @@
             const icon = document.getElementById("refresh-icon");
 
             if (icon) icon.classList.add("animate-spin");
-            grid.classList.add("hidden");
-            skeleton.classList.remove("hidden");
+            if (grid) grid.classList.add("hidden");
+            if (skeleton) skeleton.classList.remove("hidden");
 
             showToast("AIが最新ニュース・トレンドを再取得しています...", "info");
 
@@ -1748,7 +2069,7 @@
                 const parsedList = JSON.parse(cleanJson);
 
                 if (Array.isArray(parsedList) && parsedList.length > 0) {
-                    const customKeep = newsItems.filter(i => i.category === "custom");
+                    const customKeep = newsItems.filter(i => String(i.id).startsWith("custom-") || !INITIAL_NEWS_DATA.some(init => init.id === i.id));
                     const refreshed = parsedList.map((item, idx) => {
                         const itemSources = sources.length > 0
                             ? (sources[idx] ? [sources[idx], ...sources.filter((_, sIdx) => sIdx !== idx)].slice(0, 2) : sources)
@@ -1787,8 +2108,8 @@
                 document.getElementById("last-updated-text").textContent = `最終更新: ${timeStr} ・ ${AI_ENGINE_NAME}`;
                 showToast("最新のダイジェスト表示を更新しました", "info");
             } finally {
-                skeleton.classList.add("hidden");
-                grid.classList.remove("hidden");
+                if (skeleton) skeleton.classList.add("hidden");
+                if (grid) grid.classList.remove("hidden");
                 if (icon) icon.classList.remove("animate-spin");
                 renderNewsCards();
             }
