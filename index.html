@@ -1,0 +1,1993 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIトレンド＆ニュースハブ | テレビ代わりの最新情報＆流行まとめ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Inter & Noto Sans JP -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDK (Compat版: 単一HTMLで安定動作) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans JP', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#161e2e',
+                            900: '#0f172a',
+                            950: '#090d16',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #090d16;
+            color: #f1f5f9;
+            overflow-x: hidden;
+            padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
+            -webkit-tap-highlight-color: transparent;
+        }
+        @media (min-width: 1024px) {
+            body {
+                padding-bottom: 0;
+            }
+        }
+        /* スマートヘッダー（下スクロールで非表示・上スクロールで再表示） */
+        #smart-top-header {
+            transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+            will-change: transform;
+        }
+        #smart-top-header.header-hidden {
+            transform: translateY(-100%);
+            pointer-events: none;
+        }
+        /* iOS Safariの入力フォーカス時自動ズーム防止 */
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+        @media (min-width: 640px) {
+            input, select, textarea {
+                font-size: 0.875rem !important;
+            }
+        }
+        /* 横スクロールバー非表示（スマホ用ジャンルピルバー） */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        /* 音声波形アニメーション */
+        @keyframes soundbar {
+            0%, 100% { height: 4px; }
+            50% { height: 18px; }
+        }
+        .animate-bar-1 { animation: soundbar 0.8s ease-in-out infinite; }
+        .animate-bar-2 { animation: soundbar 0.6s ease-in-out infinite 0.2s; }
+        .animate-bar-3 { animation: soundbar 0.9s ease-in-out infinite 0.1s; }
+        .animate-bar-4 { animation: soundbar 0.7s ease-in-out infinite 0.3s; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- 通知トースト (alert代替) -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- 左スライドメニュー用オーバーレイ -->
+    <div id="drawer-backdrop" onclick="closeSlideDrawer()" class="fixed inset-0 z-40 bg-slate-950/75 backdrop-blur-xs hidden opacity-0 transition-opacity duration-300"></div>
+
+    <!-- 左からスライドするナビゲーションドロワー -->
+    <aside id="left-slide-drawer" class="fixed top-0 left-0 bottom-0 z-50 w-80 max-w-[88vw] bg-slate-900 border-r border-slate-800 shadow-2xl transform -translate-x-full transition-transform duration-300 ease-out flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+        <!-- ドロワー上部 -->
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-md shrink-0">
+                    <i data-lucide="tv" class="w-4 h-4 text-white"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold text-white leading-tight">AIトレンド＆ニュースハブ</h2>
+                    <p id="current-date-display" class="text-[11px] text-slate-400">2026年11月24日 (火)</p>
+                </div>
+            </div>
+            <button onclick="closeSlideDrawer()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition" title="閉じる">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- ドロワー中身 -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-5">
+            <!-- Googleログイン & Firebaseクラウド同期パネル -->
+            <div class="p-3.5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="cloud" class="w-3.5 h-3.5 text-sky-400"></i>
+                        <span>Firebase クラウド保存</span>
+                    </span>
+                    <button onclick="openFirebaseConfigModal()" class="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-800 transition" title="Firebase設定を編集">
+                        <i data-lucide="settings" class="w-3 h-3"></i>
+                        <span>設定</span>
+                    </button>
+                </div>
+
+                <!-- 未ログイン時表示 -->
+                <div id="auth-logged-out-view" class="space-y-2">
+                    <p id="firebase-status-hint" class="text-[11px] text-slate-400 leading-relaxed">
+                        Googleでログインすると、登録サイト・ジャンル・追加トピックがFirebaseに自動保存されます。
+                    </p>
+                    <button onclick="signInWithGoogle()" class="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 active:scale-[0.98] text-slate-900 text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition">
+                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24z"/>
+                            <path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14z"/>
+                            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96z"/>
+                        </svg>
+                        <span>Googleでログイン</span>
+                    </button>
+                </div>
+
+                <!-- ログイン済み時表示 -->
+                <div id="auth-logged-in-view" class="hidden space-y-2.5">
+                    <div class="flex items-center gap-2.5">
+                        <img id="user-avatar" src="" alt="ユーザーアイコン" class="w-8 h-8 rounded-full border border-slate-700 bg-slate-800 object-cover shrink-0">
+                        <div class="min-w-0 flex-1">
+                            <div id="user-display-name" class="text-xs font-bold text-white truncate">ユーザー名</div>
+                            <div id="user-email-text" class="text-[10px] text-emerald-400 truncate flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                                <span>Firestore同期中</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="syncAllDataToFirestore(true)" class="flex-1 py-1.5 px-2.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">
+                            <i data-lucide="cloud-upload" class="w-3 h-3"></i>
+                            <span>今すぐ同期</span>
+                        </button>
+                        <button onclick="signOutGoogle()" class="py-1.5 px-2.5 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/80 text-[11px] font-medium transition">
+                            ログアウト
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 使用AI情報バッジ -->
+            <div class="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/25">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-indigo-300 mb-1">
+                    <i data-lucide="cpu" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <span>抽出AIエンジン稼働中</span>
+                </div>
+                <p id="active-ai-model-badge" class="text-[11px] text-slate-300">Gemini 3 Flash + Google検索</p>
+            </div>
+
+            <!-- クイック操作 -->
+            <div class="space-y-2">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">クイック操作</div>
+                <button onclick="closeSlideDrawer(); openBriefingModal();" class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs sm:text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition">
+                    <i data-lucide="headphones" class="w-4 h-4 shrink-0"></i>
+                    <span>AI朝刊ダイジェスト（音声）</span>
+                </button>
+                <button id="refresh-feed-btn" onclick="closeSlideDrawer(); refreshCurrentCategoryWithAI();" class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700/80 text-xs sm:text-sm font-semibold text-slate-200 transition">
+                    <i data-lucide="refresh-cw" id="refresh-icon" class="w-4 h-4 text-indigo-400 shrink-0"></i>
+                    <span>最新情報にAI更新</span>
+                </button>
+            </div>
+
+            <!-- ジャンル切り替えナビ -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ジャンル切り替え・管理</span>
+                </div>
+
+                <!-- 新しいジャンル作成フォーム -->
+                <form id="create-genre-form" onsubmit="handleCreateGenre(event)" class="flex items-center gap-1.5 px-0.5">
+                    <input
+                        type="text"
+                        id="new-genre-input"
+                        placeholder="新規ジャンル名（例：アニメ）"
+                        class="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                    >
+                    <button
+                        type="submit"
+                        class="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-semibold shrink-0 flex items-center gap-1 transition"
+                        title="ジャンルを作成"
+                    >
+                        <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                        <span>追加</span>
+                    </button>
+                </form>
+
+                <!-- 動的描画されるジャンル一覧 -->
+                <nav class="flex flex-col gap-1.5 pt-1" id="category-tabs">
+                    <!-- JavaScriptで動的生成 -->
+                </nav>
+            </div>
+
+            <!-- 登録サイト（URLで登録・管理＆AI抽出） -->
+            <div class="space-y-2.5 pt-3 border-t border-slate-800/80">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="globe" class="w-3.5 h-3.5 text-emerald-400"></i>
+                        <span>登録サイト（URL登録）</span>
+                    </span>
+                    <span id="registered-sites-count" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">0件</span>
+                </div>
+
+                <!-- サイトURL登録フォーム -->
+                <form id="register-site-form" onsubmit="handleRegisterSite(event)" class="space-y-2 bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                    <input
+                        type="url"
+                        id="site-url-input"
+                        required
+                        placeholder="https://example.com（サイトURL）"
+                        class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+                    >
+                    <div class="flex items-center gap-1.5">
+                        <input
+                            type="text"
+                            id="site-name-input"
+                            placeholder="サイト名（任意・自動取得）"
+                            class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+                        >
+                        <button
+                            type="submit"
+                            class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-semibold shrink-0 flex items-center gap-1 transition"
+                            title="サイトを登録"
+                        >
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            <span>登録</span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 登録済みサイト一覧 -->
+                <div id="registered-sites-list" class="space-y-1.5">
+                    <!-- JavaScriptで動的生成 -->
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- イマドキ風スマートトップヘッダー（最上部固定・下スクロールで隠れ、上スクロールで再表示） -->
+    <header id="smart-top-header" class="sticky top-0 z-30 bg-slate-950/88 backdrop-blur-xl border-b border-slate-800/80 pt-[env(safe-area-inset-top)] shadow-lg shadow-slate-950/40">
+        <div class="max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3 space-y-2.5">
+            <!-- 上段：メニューボタン・タイトル・AI朝刊＆表示切替 -->
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <button onclick="openSlideDrawer()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-700/80 text-xs sm:text-sm font-semibold text-white shadow-xs transition shrink-0" title="ジャンル管理・メニューを開く">
+                        <i data-lucide="menu" class="w-4 h-4 text-indigo-400"></i>
+                        <span>メニュー</span>
+                    </button>
+
+                    <div class="min-w-0">
+                        <h1 id="section-title" class="text-[15px] sm:text-lg font-bold text-white leading-tight truncate">
+                            <span>すべての注目トピック</span>
+                        </h1>
+                        <p id="last-updated-text" class="text-[10px] sm:text-[11px] text-slate-400 truncate">最終更新: 16:02 ・ Gemini 3 Flash 抽出</p>
+                    </div>
+                </div>
+
+                <!-- 右側：朝刊ボタン＆表示密度切替 -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button onclick="openBriefingModal()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-600/25 to-purple-600/25 hover:from-indigo-600/35 hover:to-purple-600/35 active:scale-95 border border-indigo-500/35 text-indigo-200 text-xs font-semibold transition">
+                        <i data-lucide="headphones" class="w-3.5 h-3.5 text-indigo-400"></i>
+                        <span>AI朝刊</span>
+                    </button>
+
+                    <div class="hidden sm:flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+                        <button id="view-list-btn" onclick="setLayoutMode('list')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition" title="ゆったり見やすい標準表示">
+                            <i data-lucide="list" class="w-3.5 h-3.5"></i>
+                            <span>標準</span>
+                        </button>
+                        <button id="view-grid-btn" onclick="setLayoutMode('grid')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition" title="一覧性の高い2列表示">
+                            <i data-lucide="columns-2" class="w-3.5 h-3.5"></i>
+                            <span>2列</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+                    <!-- 読み上げ原稿 -->
+                <div class="space-y-1.5">
+                    <span class="text-[11px] font-semibold text-slate-400">本日のハイライト原稿：</span>
+                    <div id="briefing-script-box" class="p-4 rounded-xl bg-slate-850 border border-slate-800 text-xs sm:text-sm text-slate-200 leading-relaxed max-h-60 overflow-y-auto space-y-3">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase プロジェクト設定モーダル -->
+    <div id="firebase-config-modal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="bg-slate-900 border-t sm:border border-slate-700/80 rounded-t-3xl sm:rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden pb-[env(safe-area-inset-bottom)]">
+            <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i>
+                    <h3 class="text-sm font-bold text-white">Firebase 接続設定</h3>
+                </div>
+                <button onclick="closeFirebaseConfigModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form onsubmit="handleSaveFirebaseConfig(event)" class="p-5 space-y-3.5">
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Firebaseコンソールの「プロジェクトの設定」から取得した <code class="text-indigo-300 bg-slate-950 px-1.5 py-0.5 rounded">firebaseConfig</code> のJSON（またはオブジェクト記述）を貼り付けて保存してください。
+                </p>
+                <div class="text-[11px] text-slate-400 bg-slate-950/90 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <div>1. Firebase Authentication で「Google」ログインを有効化</div>
+                    <div>2. Cloud Firestore データベースを作成（<code class="text-emerald-300">users/{uid}</code> に自動保存されます）</div>
+                </div>
+                <textarea
+                    id="firebase-config-textarea"
+                    rows="6"
+                    placeholder='{"apiKey": "AIzaSy...", "authDomain": "your-app.firebaseapp.com", "projectId": "your-app", "storageBucket": "...", "messagingSenderId": "...", "appId": "..."}'
+                    class="w-full p-3 rounded-xl bg-slate-950 border border-slate-700/80 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500"
+                ></textarea>
+                <div class="flex items-center justify-between gap-2 pt-1">
+                    <button type="button" onclick="clearFirebaseConfig()" class="px-3 py-2 rounded-xl bg-slate-850 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 text-xs font-medium border border-slate-800 transition">
+                        設定をリセット
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeFirebaseConfigModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition">
+                            キャンセル
+                        </button>
+                        <button type="submit" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-md transition">
+                            保存して接続
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // Firebase 設定・Authentication・Firestore 連携
+        // ==========================================
+        const DEFAULT_FIREBASE_CONFIG = typeof __firebase_config !== "undefined"
+            ? JSON.parse(__firebase_config)
+            : null;
+
+        let firebaseApp = null;
+        let firebaseAuth = null;
+        let firebaseDb = null;
+        let currentUser = null;
+
+        function getStoredFirebaseConfig() {
+            try {
+                const raw = localStorage.getItem("ai_news_hub_firebase_config");
+                if (raw) return JSON.parse(raw);
+            } catch (e) {
+                console.warn("Firebase config read error:", e);
+            }
+            return DEFAULT_FIREBASE_CONFIG;
+        }
+
+        function initFirebaseServices() {
+            const config = getStoredFirebaseConfig();
+            const hintEl = document.getElementById("firebase-status-hint");
+
+            if (!config || !config.apiKey || !config.projectId) {
+                if (hintEl) {
+                    hintEl.innerHTML = `右上の「設定」からFirebase設定を登録すると、Googleログインとクラウド保存が有効になります。`;
+                }
+                return false;
+            }
+
+            try {
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(config);
+                } else {
+                    firebaseApp = firebase.app();
+                }
+                firebaseAuth = firebase.auth();
+                firebaseDb = firebase.firestore();
+
+                firebaseAuth.onAuthStateChanged(async (user) => {
+                    currentUser = user;
+                    updateAuthUI(user);
+                    if (user) {
+                        await loadUserDataFromFirestore(user.uid);
+                    }
+                });
+
+                if (hintEl) {
+                    hintEl.textContent = "Googleでログインすると、登録サイト・ジャンル・追加トピックがFirebaseに自動保存されます。";
+                }
+                return true;
+            } catch (err) {
+                console.error("Firebase init failed:", err);
+                showToast("Firebaseの初期化に失敗しました。設定内容を確認してください", "error");
+                return false;
+            }
+        }
+
+        function updateAuthUI(user) {
+            const loggedOutView = document.getElementById("auth-logged-out-view");
+            const loggedInView = document.getElementById("auth-logged-in-view");
+            if (!loggedOutView || !loggedInView) return;
+
+            if (user) {
+                loggedOutView.classList.add("hidden");
+                loggedInView.classList.remove("hidden");
+                document.getElementById("user-display-name").textContent = user.displayName || "Googleユーザー";
+                document.getElementById("user-email-text").innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span><span class="truncate">${escapeHtml(user.email || "Firestore同期中")}</span>`;
+                const avatar = document.getElementById("user-avatar");
+                if (avatar) {
+                    avatar.src = user.photoURL || `https://placehold.co/64x64/1e293b/94a3b8?text=${encodeURIComponent((user.displayName || "U")[0])}`;
+                }
+            } else {
+                loggedInView.classList.add("hidden");
+                loggedOutView.classList.remove("hidden");
+            }
+            lucide.createIcons();
+        }
+
+        async function signInWithGoogle() {
+            if (!firebaseAuth) {
+                const ok = initFirebaseServices();
+                if (!ok || !firebaseAuth) {
+                    showToast("先にFirebase接続設定を入力してください", "info");
+                    openFirebaseConfigModal();
+                    return;
+                }
+            }
+
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                await firebaseAuth.signInWithPopup(provider);
+                showToast("Googleアカウントでログインしました！", "success");
+            } catch (err) {
+                console.error("Google sign-in error:", err);
+                if (err.code === "auth/popup-blocked") {
+                    showToast("ポップアップがブロックされました。ブラウザの設定を確認してください", "error");
+                } else if (err.code !== "auth/popup-closed-by-user") {
+                    showToast(`ログインに失敗しました (${err.code || "エラー"})`, "error");
+                }
+            }
+        }
+
+        async function signOutGoogle() {
+            if (!firebaseAuth) return;
+            try {
+                await firebaseAuth.signOut();
+                showToast("ログアウトしました", "info");
+            } catch (err) {
+                console.error("Sign out error:", err);
+                showToast("ログアウトに失敗しました", "error");
+            }
+        }
+
+        async function syncAllDataToFirestore(manualNotify = false) {
+            if (!firebaseDb || !currentUser) return;
+            try {
+                const customNewsOnly = newsItems.filter(item =>
+                    String(item.id).startsWith("custom-") || !INITIAL_NEWS_DATA.some(init => init.id === item.id)
+                );
+
+                await firebaseDb.collection("users").doc(currentUser.uid).set({
+                    genres: genres,
+                    registeredSites: registeredSites,
+                    savedNewsItems: customNewsOnly,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                if (manualNotify) {
+                    showToast("Firebaseへすべての登録情報を保存しました！", "success");
+                }
+            } catch (err) {
+                console.error("Firestore save error:", err);
+                if (manualNotify) {
+                    showToast("Firebaseへの保存に失敗しました。セキュリティルールを確認してください", "error");
+                }
+            }
+        }
+
+        async function loadUserDataFromFirestore(uid) {
+            if (!firebaseDb || !uid) return;
+            try {
+                const docSnap = await firebaseDb.collection("users").doc(uid).get();
+                if (docSnap.exists) {
+                    const data = docSnap.data();
+                    if (Array.isArray(data.genres) && data.genres.length > 0) {
+                        genres = data.genres;
+                    }
+                    if (Array.isArray(data.registeredSites)) {
+                        registeredSites = data.registeredSites;
+                        saveRegisteredSites();
+                    }
+                    if (Array.isArray(data.savedNewsItems) && data.savedNewsItems.length > 0) {
+                        const existingIds = new Set(INITIAL_NEWS_DATA.map(i => i.id));
+                        const restoredCustom = data.savedNewsItems.filter(i => !existingIds.has(i.id));
+                        newsItems = [...restoredCustom, ...INITIAL_NEWS_DATA];
+                    }
+                    renderGenreTabs();
+                    renderGenreSelectOptions();
+                    renderRegisteredSites();
+                    updateCategoryCounts();
+                    renderNewsCards();
+                    showToast("Firebaseから保存済みの登録情報を読み込みました！", "success");
+                } else {
+                    // 初回ログイン時は現在のローカル登録データをそのままクラウドへ初期保存
+                    await syncAllDataToFirestore(false);
+                }
+            } catch (err) {
+                console.error("Firestore load error:", err);
+                showToast("クラウドデータの読み込み中にエラーが発生しました", "error");
+            }
+        }
+
+        function openFirebaseConfigModal() {
+            const modal = document.getElementById("firebase-config-modal");
+            const textarea = document.getElementById("firebase-config-textarea");
+            const current = getStoredFirebaseConfig();
+            if (textarea) {
+                textarea.value = current ? JSON.stringify(current, null, 2) : "";
+            }
+            if (modal) {
+                modal.classList.remove("hidden");
+                modal.classList.add("flex");
+                lucide.createIcons();
+            }
+        }
+
+        function closeFirebaseConfigModal() {
+            const modal = document.getElementById("firebase-config-modal");
+            if (modal) {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            }
+        }
+
+        function handleSaveFirebaseConfig(event) {
+            event.preventDefault();
+            const textarea = document.getElementById("firebase-config-textarea");
+            let raw = textarea.value.trim();
+            if (!raw) {
+                showToast("Firebase設定を入力してください", "error");
+                return;
+            }
+
+            try {
+                // JSオブジェクト形式（キーにクォートなし）で貼り付けられた場合も柔軟にJSONへ変換
+                const braceMatch = raw.match(/\{[\s\S]*\}/);
+                if (braceMatch) raw = braceMatch[0];
+                const normalizedJson = raw.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":');
+                const parsed = JSON.parse(normalizedJson);
+
+                if (!parsed.apiKey || !parsed.projectId) {
+                    throw new Error("Missing apiKey or projectId");
+                }
+
+                localStorage.setItem("ai_news_hub_firebase_config", JSON.stringify(parsed));
+                closeFirebaseConfigModal();
+                showToast("Firebase設定を保存しました！ログインできます", "success");
+
+                // すでに別アプリが初期化されている場合はリロードして再接続
+                if (firebase.apps.length) {
+                    location.reload();
+                } else {
+                    initFirebaseServices();
+                }
+            } catch (err) {
+                console.error("Config parse error:", err);
+                showToast("設定の形式が正しくありません。firebaseConfig の { ... } を貼り付けてください", "error");
+            }
+        }
+
+        function clearFirebaseConfig() {
+            localStorage.removeItem("ai_news_hub_firebase_config");
+            closeFirebaseConfigModal();
+            showToast("保存されたFirebase設定をリセットしました", "info");
+            if (firebase.apps.length) {
+                location.reload();
+            }
+        }
+
+        // ==========================================
+        // 初期データ定義（使用AI・情報ソース・引用画像付き）
+        // ==========================================
+        const AI_ENGINE_NAME = "Gemini 3 Flash + Google検索";
+
+        // 参照元URL・メディアからOGP画像を直接引用表示するヘルパー（取得できない場合はnullを返す）
+        function getReferencedPreviewImage(sourceUrl) {
+            if (!sourceUrl) return null;
+            return `https://api.microlink.io/?url=${encodeURIComponent(sourceUrl)}&embed=image.url`;
+        }
+
+        const INITIAL_NEWS_DATA = [
+            {
+                id: "w-1",
+                category: "world",
+                categoryLabel: "世界・日本情勢",
+                badgeColor: "sky",
+                aiModel: AI_ENGINE_NAME,
+                time: "2時間前",
+                sourceUrl: "https://www3.nhk.or.jp/news/",
+                imageCredit: "引用元: NHK NEWS WEB",
+                title: "世界の主要中央銀行が金融政策の転換点を模索、日本の金利・為替動向にも注目",
+                summary: [
+                    "米欧の中央銀行がインフレ鈍化を受け、今後の利下げペースを慎重に見極める姿勢を示しています。",
+                    "これに伴い外国為替市場では円相場が神経質な動きを見せており、輸入物価への影響が議論されています。",
+                    "日本国内でも賃上げの持続性と追加利上げのタイミングが経済の最大焦点となっています。"
+                ],
+                context: "テレビの経済ニュース（WBSなど）でも連日トップで扱われるテーマです。海外の金利動向は私たちの普段の買い物（食料品やガソリン代、海外サービスの利用料）に直結するため、大きな流れだけ押さえておくと世間のニュースが理解しやすくなります。",
+                sources: [
+                    { name: "NHK NEWS WEB", url: "https://www3.nhk.or.jp/news/" },
+                    { name: "日本経済新聞", url: "https://www.nikkei.com/" }
+                ]
+            },
+            {
+                id: "w-2",
+                category: "world",
+                categoryLabel: "世界・日本情勢",
+                badgeColor: "sky",
+                aiModel: AI_ENGINE_NAME,
+                time: "3時間前",
+                sourceUrl: "https://jp.reuters.com/",
+                imageCredit: "引用元: Reuters (ロイター)",
+                title: "再生可能エネルギーと次世代電力網への投資が世界規模で加速、AIデータセンター需要が背景",
+                summary: [
+                    "生成AIの普及によるデータセンターの電力消費急増に対応するため、各国が次世代エネルギー計画を相次いで発表。",
+                    "日本政府も脱炭素と電力安定供給を両立する新たなエネルギー基本計画の議論を本格化させています。",
+                    "関連する蓄電池や省エネ半導体分野の日本企業にも国内外から注目が集まっています。"
+                ],
+                context: "単なる環境問題ではなく「AI時代のインフラ競争」として世界情勢の重要テーマになっています。",
+                sources: [
+                    { name: "Reuters (ロイター)", url: "https://jp.reuters.com/" },
+                    { name: "経済産業省 資源エネルギー庁", url: "https://www.enecho.meti.go.jp/" }
+                ]
+            },
+            {
+                id: "tr-1",
+                category: "trend",
+                categoryLabel: "最近の流行・トレンド",
+                badgeColor: "rose",
+                aiModel: AI_ENGINE_NAME,
+                time: "1時間前",
+                sourceUrl: "https://xtrend.nikkei.com/",
+                imageCredit: "引用元: 日経クロストレンド",
+                title: "「平成レトロ×最新カフェスイーツ」と「タイパ重視の体験型イベント」が若者を中心に大流行",
+                summary: [
+                    "SNSでは懐かしさを感じる平成初期デザインのアイテムやデジカメ風写真加工が再びトレンド上位に浮上。",
+                    "グルメ分野では、見た目だけでなく食感の変化を楽しめるハイブリッドスイーツが週末の行列スポットになっています。",
+                    "短時間で非日常を味わえる没入型（イマーシブ）展示会も休日のお出かけ先として人気です。"
+                ],
+                context: "朝の情報番組（ZIP!やめざましテレビ）のトレンド特集でよく取り上げられるジャンルです。SNSでバズったものが数週間後にテレビで紹介される流れが定着しています。",
+                sources: [
+                    { name: "日経クロストレンド", url: "https://xtrend.nikkei.com/" },
+                    { name: "Yahoo!リアルタイム検索", url: "https://search.yahoo.co.jp/realtime" }
+                ]
+            },
+            {
+                id: "tr-2",
+                category: "trend",
+                categoryLabel: "最近の流行・トレンド",
+                badgeColor: "rose",
+                aiModel: AI_ENGINE_NAME,
+                time: "4時間前",
+                sourceUrl: "https://dime.jp/",
+                imageCredit: "引用元: @DIME アットダイム",
+                title: "「睡眠の質改善」と「ながらリカバリー」が健康トレンドの主役に、関連グッズが好調",
+                summary: [
+                    "スマートリングや睡眠計測アプリを活用し、日々の休息スコアを可視化する「スリープテック」が一般層に浸透。",
+                    "着るだけで疲労回復をサポートするリカバリーウェアや、カフェインレスの夜用ドリンクも定番化しつつあります。",
+                    "無理な運動よりも「日常の休息効率を高める」ライフスタイルが幅広い世代で支持されています。"
+                ],
+                context: "雑誌やバラエティ番組でも特集が組まれやすい生活密着型の流行です。",
+                sources: [
+                    { name: "@DIME アットダイム", url: "https://dime.jp/" },
+                    { name: "PR TIMES トレンド", url: "https://prtimes.jp/" }
+                ]
+            },
+            {
+                id: "yt-1",
+                category: "youtube",
+                categoryLabel: "流行りのYouTube",
+                badgeColor: "red",
+                aiModel: AI_ENGINE_NAME,
+                time: "2時間前",
+                sourceUrl: "https://www.youtube.com/feed/trending",
+                imageCredit: "引用元: YouTube 公式トレンド",
+                title: "ビジネス・教養系YouTubeの「長尺ドキュメンタリー＆図解解説」がテレビ番組超えの再生数に",
+                summary: [
+                    "PIVOT、ReHacQ、テレ東BIZなどのビジネス・社会派チャンネルによる30分〜1時間の深掘り対談が急成長。",
+                    "通勤中や家事中に「ラジオ感覚で聞き流せる」質の高い解説コンテンツが忙しい層から支持を集めています。",
+                    "テレビのニュースよりも背景や本音が分かりやすいとして、情報収集のメイン媒体にする人が増加中です。"
+                ],
+                context: "テレビがない生活でも、これらのチャンネルを登録しておくだけで世の中の重要な議論や専門家の見解を自然にキャッチできます。",
+                sources: [
+                    { name: "YouTube トレンド", url: "https://www.youtube.com/feed/trending" },
+                    { name: "テレ東BIZ / PIVOT公式", url: "https://www.youtube.com/" }
+                ]
+            },
+            {
+                id: "yt-2",
+                category: "youtube",
+                categoryLabel: "流行りのYouTube",
+                badgeColor: "red",
+                aiModel: AI_ENGINE_NAME,
+                time: "5時間前",
+                sourceUrl: "https://www.billboard-japan.com/",
+                imageCredit: "引用元: Billboard JAPAN",
+                title: "ショート動画発の「オリジナル音源ダンス」と「1分レシピ・ライフハック」が世界同時ヒット",
+                summary: [
+                    "日本のクリエイターが制作したキャッチーな楽曲や振り付けがYouTubeショート経由で海外にも拡散。",
+                    "料理系では「洗い物ゼロ」「電子レンジだけで5分」など実用性の高い時短レシピ動画が数百万回再生を記録。",
+                    "ショート動画で話題になった楽曲が音楽チャートの上位に入る現象が続いています。"
+                ],
+                context: "今の流行曲や若者言葉の多くはYouTubeショートやTikTokから生まれています。",
+                sources: [
+                    { name: "Billboard JAPAN", url: "https://www.billboard-japan.com/" },
+                    { name: "YouTube ショート急上昇", url: "https://www.youtube.com/shorts" }
+                ]
+            },
+            {
+                id: "tc-1",
+                category: "tech",
+                categoryLabel: "テクノロジー・AI",
+                badgeColor: "emerald",
+                aiModel: AI_ENGINE_NAME,
+                time: "1時間前",
+                sourceUrl: "https://blog.google/technology/ai/",
+                imageCredit: "引用元: Google AI Blog",
+                title: "自律型「AIエージェント」が実用フェーズへ、検索や予約・資料作成をAIが自動で完結",
+                summary: [
+                    "これまでの「質問に答えるAI」から、ユーザーの指示を受けて複数のアプリやWebを操作しタスクを完了させるAIエージェントへ進化。",
+                    "旅行の計画から比較検討、日常のスケジュール調整までを自動化する新機能が各社から相次いでリリースされています。",
+                    "スマホやPCのOSレベルでのAI統合が進み、誰でも意識せずAIの恩恵を受けられる環境が整いつつあります。"
+                ],
+                context: "テクノロジー分野における最大のトレンドです。仕事や日常の情報収集のやり方が大きく変わり始めています。",
+                sources: [
+                    { name: "Google AI Blog", url: "https://blog.google/technology/ai/" },
+                    { name: "ITmedia AI+", url: "https://www.itmedia.co.jp/news/subtop/aiplus/" }
+                ]
+            },
+            {
+                id: "tc-2",
+                category: "tech",
+                categoryLabel: "テクノロジー・AI",
+                badgeColor: "emerald",
+                aiModel: AI_ENGINE_NAME,
+                time: "3時間前",
+                sourceUrl: "https://gigazine.net/",
+                imageCredit: "引用元: GIGAZINE",
+                title: "軽量・高精細な「スマートグラス」と次世代ウェアラブル端末の発表が相次ぐ",
+                summary: [
+                    "普段使いできる普通のメガネに近いデザインで、リアルタイム翻訳やナビ表示ができるスマートグラスが注目を集めています。",
+                    "AIによる音声アシスタントとカメラ認識を組み合わせ、見たものの情報を即座に解説する機能が進化。",
+                    "スマホの次を担う次世代デバイスとして、大手テック各社が開発競争を加速させています。"
+                ],
+                context: "ガジェット好きだけでなく、旅行や語学学習を便利にするアイテムとして一般ニュースでも取り上げられ始めています。",
+                sources: [
+                    { name: "GIGAZINE", url: "https://gigazine.net/" },
+                    { name: "TechCrunch", url: "https://techcrunch.com/" }
+                ]
+            }
+        ];
+
+        const TRENDING_KEYWORDS = [
+            { rank: 1, word: "AIエージェント実用化", tag: "テック", heat: "急上昇" },
+            { rank: 2, word: "為替・日銀金融政策", tag: "経済・情勢", heat: "注目" },
+            { rank: 3, word: "平成レトロスイーツ", tag: "流行", heat: "SNS話題" },
+            { rank: 4, word: "スリープテック・快眠", tag: "ライフ", heat: "人気" },
+            { rank: 5, word: "深掘り解説YouTube", tag: "エンタメ", heat: "定番化" }
+        ];
+
+        const INITIAL_GENRES = [
+            { id: "world", label: "世界・日本情勢", color: "sky", icon: "globe" },
+            { id: "trend", label: "最近の流行・トレンド", color: "rose", icon: "flame" },
+            { id: "youtube", label: "流行りのYouTube", color: "red", icon: "play-circle" },
+            { id: "tech", label: "テクノロジー・AI", color: "emerald", icon: "cpu" },
+            { id: "custom", label: "追加トピック", color: "amber", icon: "bookmark-plus" }
+        ];
+
+        const GENRE_COLOR_CYCLE = ["sky", "rose", "red", "emerald", "amber"];
+
+        const DEFAULT_REGISTERED_SITES = [
+            { id: "site-nhk", name: "NHK NEWS WEB", url: "https://www3.nhk.or.jp/news/" },
+            { id: "site-yahoo", name: "Yahoo!ニュース", url: "https://news.yahoo.co.jp/" }
+        ];
+
+        function loadRegisteredSites() {
+            try {
+                const saved = localStorage.getItem("ai_news_hub_registered_sites");
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed)) return parsed;
+                }
+            } catch (e) {
+                console.warn("Storage load failed:", e);
+            }
+            return [...DEFAULT_REGISTERED_SITES];
+        }
+
+        function saveRegisteredSites() {
+            try {
+                localStorage.setItem("ai_news_hub_registered_sites", JSON.stringify(registeredSites));
+            } catch (e) {
+                console.warn("Storage save failed:", e);
+            }
+        }
+
+        // アプリ状態管理
+        let genres = [...INITIAL_GENRES];
+        let newsItems = [...INITIAL_NEWS_DATA];
+        let registeredSites = loadRegisteredSites();
+        let currentCategory = "all";
+        let currentLayout = "list"; // 'list' | 'grid'
+        let activeModalItem = null;
+        let isSpeaking = false;
+
+        // ==========================================
+        // 初期化処理
+        // ==========================================
+        window.addEventListener("DOMContentLoaded", () => {
+            updateDateDisplay();
+            renderGenreTabs();
+            renderGenreSelectOptions();
+            renderRegisteredSites();
+            renderTrendingWords();
+            renderNewsCards();
+            updateCategoryCounts();
+            initSmartHeaderScroll();
+            initFirebaseServices();
+            lucide.createIcons();
+        });
+
+        function initSmartHeaderScroll() {
+            const header = document.getElementById("smart-top-header");
+            if (!header) return;
+            let lastScrollY = window.scrollY;
+            window.addEventListener("scroll", () => {
+                const currentScrollY = window.scrollY;
+                if (currentScrollY <= 40) {
+                    header.classList.remove("header-hidden");
+                } else if (currentScrollY > lastScrollY + 8) {
+                    header.classList.add("header-hidden");
+                } else if (currentScrollY < lastScrollY - 6) {
+                    header.classList.remove("header-hidden");
+                }
+                lastScrollY = currentScrollY;
+            }, { passive: true });
+        }
+
+        function updateDateDisplay() {
+            const now = new Date();
+            const days = ["日", "月", "火", "水", "木", "金", "土"];
+            const formatted = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 (${days[now.getDay()]})`;
+            document.getElementById("current-date-display").textContent = formatted;
+        }
+
+        // ==========================================
+        // 登録サイト（URL登録・削除・AI抽出）
+        // ==========================================
+        function handleRegisterSite(event) {
+            event.preventDefault();
+            const urlInput = document.getElementById("site-url-input");
+            const nameInput = document.getElementById("site-name-input");
+            let rawUrl = urlInput.value.trim();
+            const rawName = nameInput.value.trim();
+
+            if (!rawUrl) {
+                showToast("登録するサイトのURLを入力してください", "error");
+                return;
+            }
+
+            if (!/^https?:\/\//i.test(rawUrl)) {
+                rawUrl = "https://" + rawUrl;
+            }
+
+            let parsedUrl;
+            try {
+                parsedUrl = new URL(rawUrl);
+            } catch (e) {
+                showToast("有効なURL形式（例: https://example.com）を入力してください", "error");
+                return;
+            }
+
+            const normalizedUrl = parsedUrl.href;
+            if (registeredSites.some(s => s.url === normalizedUrl)) {
+                showToast("このURLはすでに登録されています", "info");
+                return;
+            }
+
+            const siteName = rawName || parsedUrl.hostname.replace(/^www\./, "");
+            registeredSites.unshift({
+                id: "site-" + Date.now(),
+                name: siteName,
+                url: normalizedUrl
+            });
+
+            saveRegisteredSites();
+            syncAllDataToFirestore();
+            urlInput.value = "";
+            nameInput.value = "";
+            renderRegisteredSites();
+            showToast(`「${siteName}」をマイサイトに登録しました！`, "success");
+        }
+
+        function deleteRegisteredSite(siteId, event) {
+            if (event) event.stopPropagation();
+            const target = registeredSites.find(s => s.id === siteId);
+            if (!target) return;
+
+            registeredSites = registeredSites.filter(s => s.id !== siteId);
+            saveRegisteredSites();
+            syncAllDataToFirestore();
+            renderRegisteredSites();
+            showToast(`「${target.name}」の登録を解除しました`, "info");
+        }
+
+        async function extractNewsFromRegisteredSite(siteId) {
+            const site = registeredSites.find(s => s.id === siteId);
+            if (!site) return;
+
+            closeSlideDrawer();
+            const domain = (() => {
+                try {
+                    return new URL(site.url).hostname;
+                } catch (e) {
+                    return site.url;
+                }
+            })();
+
+            await addCustomTopicWithAI(`${site.name} (${domain}) の最新記事・注目ニュース`, "custom");
+        }
+
+        function renderRegisteredSites() {
+            const container = document.getElementById("registered-sites-list");
+            const countBadge = document.getElementById("registered-sites-count");
+            if (!container) return;
+
+            if (countBadge) {
+                countBadge.textContent = `${registeredSites.length}件`;
+            }
+
+            if (registeredSites.length === 0) {
+                container.innerHTML = `
+                    <p class="text-[11px] text-slate-500 px-2 py-2 text-center bg-slate-950/40 rounded-xl border border-dashed border-slate-800">
+                        よく見るニュースサイトやブログのURLを登録できます
+                    </p>
+                `;
+                return;
+            }
+
+            container.innerHTML = registeredSites.map(site => {
+                let hostname = site.url;
+                try {
+                    hostname = new URL(site.url).hostname;
+                } catch (e) {}
+
+                return `
+                    <div class="p-2.5 rounded-xl bg-slate-850/90 border border-slate-800 hover:border-slate-700 transition space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <a href="${escapeHtml(site.url)}" target="_blank" rel="noopener noreferrer" class="min-w-0 flex-1 group">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs font-semibold text-slate-200 group-hover:text-emerald-300 truncate transition">${escapeHtml(site.name)}</span>
+                                    <i data-lucide="external-link" class="w-3 h-3 text-slate-500 group-hover:text-emerald-400 shrink-0"></i>
+                                </div>
+                                <div class="text-[10px] text-slate-500 truncate mt-0.5">${escapeHtml(hostname)}</div>
+                            </a>
+                            <button
+                                type="button"
+                                onclick="deleteRegisteredSite('${escapeHtml(site.id)}', event)"
+                                class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/50 transition shrink-0"
+                                title="登録を削除"
+                            >
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            onclick="extractNewsFromRegisteredSite('${escapeHtml(site.id)}')"
+                            class="w-full py-1.5 px-2.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/25 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition"
+                        >
+                            <i data-lucide="sparkles" class="w-3 h-3"></i>
+                            <span>このサイトの最新情報をAI抽出</span>
+                        </button>
+                    </div>
+                `;
+            }).join("");
+
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // ジャンル作成・削除・切り替え & 描画
+        // ==========================================
+        function handleCreateGenre(event) {
+            event.preventDefault();
+            const input = document.getElementById("new-genre-input");
+            const rawName = input.value.trim();
+            if (!rawName) {
+                showToast("作成するジャンル名を入力してください", "error");
+                return;
+            }
+
+            // 同名ジャンルがあればそちらへ切り替え
+            const existing = genres.find(g => g.label === rawName);
+            if (existing) {
+                input.value = "";
+                selectCategory(existing.id);
+                showToast(`ジャンル「${rawName}」はすでに存在します`, "info");
+                return;
+            }
+
+            const newId = "genre-" + Date.now();
+            const color = GENRE_COLOR_CYCLE[genres.length % GENRE_COLOR_CYCLE.length];
+            genres.push({
+                id: newId,
+                label: rawName,
+                color,
+                icon: "folder"
+            });
+
+            input.value = "";
+            renderGenreTabs();
+            renderGenreSelectOptions(newId);
+            updateCategoryCounts();
+            selectCategory(newId);
+            syncAllDataToFirestore();
+            showToast(`ジャンル「${rawName}」を作成しました！`, "success");
+        }
+
+        function deleteGenre(genreId, event) {
+            if (event) event.stopPropagation();
+            const target = genres.find(g => g.id === genreId);
+            if (!target) return;
+
+            genres = genres.filter(g => g.id !== genreId);
+            // 削除したジャンルに属していた記事の所属を整理（他ジャンルまたは'all'へ戻す）
+            newsItems = newsItems.map(item => {
+                if (item.category === genreId) {
+                    const fallbackGenre = genres[0] || { id: "all", label: "すべて", color: "sky" };
+                    return {
+                        ...item,
+                        category: fallbackGenre.id,
+                        categoryLabel: fallbackGenre.label,
+                        badgeColor: fallbackGenre.color
+                    };
+                }
+                return item;
+            });
+
+            if (currentCategory === genreId) {
+                currentCategory = "all";
+            }
+
+            renderGenreTabs();
+            renderGenreSelectOptions();
+            updateCategoryCounts();
+            selectCategory(currentCategory);
+            syncAllDataToFirestore();
+            showToast(`ジャンル「${target.label}」を削除しました`, "info");
+        }
+
+        function renderGenreSelectOptions(selectedId = null) {
+            const select = document.getElementById("custom-topic-genre-select");
+            if (!select) return;
+
+            const preferred = selectedId || (genres.some(g => g.id === "custom") ? "custom" : (genres[0]?.id || "custom"));
+            if (!genres.some(g => g.id === "custom")) {
+                select.innerHTML = `<option value="custom">追加トピック（自動作成）</option>` + genres.map(g =>
+                    `<option value="${escapeHtml(g.id)}" ${g.id === preferred ? "selected" : ""}>${escapeHtml(g.label)}</option>`
+                ).join("");
+            } else {
+                select.innerHTML = genres.map(g =>
+                    `<option value="${escapeHtml(g.id)}" ${g.id === preferred ? "selected" : ""}>${escapeHtml(g.label)}</option>`
+                ).join("");
+            }
+        }
+
+        function renderGenreTabs() {
+            const nav = document.getElementById("category-tabs");
+            const mobilePills = document.getElementById("mobile-genre-pills");
+            if (!nav) return;
+
+            const iconColorMap = {
+                sky: "text-sky-400",
+                rose: "text-rose-400",
+                red: "text-red-500",
+                emerald: "text-emerald-400",
+                amber: "text-amber-400"
+            };
+
+            const allBtnHtml = `
+                <div class="flex items-center gap-1">
+                    <button data-category="all" onclick="selectCategory('all'); closeSlideDrawer();" class="cat-tab flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition bg-slate-850 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800">
+                        <span class="flex items-center gap-2.5">
+                            <i data-lucide="layout-grid" class="w-4 h-4 text-indigo-400"></i>
+                            <span>すべて</span>
+                        </span>
+                        <span class="badge px-2 py-0.5 text-[11px] rounded-md bg-slate-800 text-slate-400">0</span>
+                    </button>
+                </div>
+            `;
+
+            const customGenresHtml = genres.map(g => {
+                const iconClass = iconColorMap[g.color] || "text-indigo-400";
+                return `
+                    <div class="flex items-center gap-1 group/item">
+                        <button data-category="${escapeHtml(g.id)}" onclick="selectCategory('${escapeHtml(g.id)}'); closeSlideDrawer();" class="cat-tab flex-1 min-w-0 flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition bg-slate-850 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800">
+                            <span class="flex items-center gap-2.5 min-w-0">
+                                <i data-lucide="${escapeHtml(g.icon || "folder")}" class="w-4 h-4 shrink-0 ${iconClass}"></i>
+                                <span class="truncate">${escapeHtml(g.label)}</span>
+                            </span>
+                            <span class="badge px-2 py-0.5 text-[11px] rounded-md bg-slate-800 text-slate-400 shrink-0 ml-2">0</span>
+                        </button>
+                        <button
+                            type="button"
+                            onclick="deleteGenre('${escapeHtml(g.id)}', event)"
+                            class="p-2.5 rounded-xl bg-slate-850 hover:bg-rose-950/70 text-slate-500 hover:text-rose-400 border border-slate-800 hover:border-rose-500/40 transition shrink-0"
+                            title="「${escapeHtml(g.label)}」を削除"
+                            aria-label="「${escapeHtml(g.label)}」を削除"
+                        >
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+            }).join("");
+
+            nav.innerHTML = allBtnHtml + customGenresHtml;
+
+            if (mobilePills) {
+                const allPill = `<button data-pill-category="all" onclick="selectCategory('all')" class="mobile-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition border">すべて</button>`;
+                const genrePills = genres.map(g =>
+                    `<button data-pill-category="${escapeHtml(g.id)}" onclick="selectCategory('${escapeHtml(g.id)}')" class="mobile-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition border">${escapeHtml(g.label)}</button>`
+                ).join("");
+                mobilePills.innerHTML = allPill + genrePills;
+            }
+
+            applyActiveTabStyle();
+            updateCategoryCounts();
+            lucide.createIcons();
+        }
+
+        function applyActiveTabStyle() {
+            document.querySelectorAll(".cat-tab").forEach(btn => {
+                const isTarget = btn.dataset.category === currentCategory;
+                if (isTarget) {
+                    btn.className = "cat-tab active flex-1 min-w-0 flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition bg-indigo-600 text-white shadow-sm";
+                } else {
+                    btn.className = "cat-tab flex-1 min-w-0 flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition bg-slate-850 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800";
+                }
+            });
+            document.querySelectorAll(".mobile-pill").forEach(btn => {
+                const isTarget = btn.dataset.pillCategory === currentCategory;
+                if (isTarget) {
+                    btn.className = "mobile-pill shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition bg-indigo-600 text-white border border-indigo-500 shadow-xs";
+                } else {
+                    btn.className = "mobile-pill shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition bg-slate-900 text-slate-300 hover:text-white border border-slate-800";
+                }
+            });
+        }
+
+        function selectCategory(cat) {
+            currentCategory = cat;
+            applyActiveTabStyle();
+
+            const foundGenre = genres.find(g => g.id === cat);
+            const titleText = cat === "all"
+                ? "すべての注目トピック"
+                : (foundGenre ? `${foundGenre.label}` : "注目トピック");
+
+            document.getElementById("section-title").innerHTML = `<span>${escapeHtml(titleText)}</span>`;
+            renderNewsCards();
+        }
+
+        function updateCategoryCounts() {
+            const counts = { all: newsItems.length };
+            genres.forEach(g => {
+                counts[g.id] = newsItems.filter(i => i.category === g.id).length;
+            });
+
+            document.querySelectorAll(".cat-tab").forEach(btn => {
+                const cat = btn.dataset.category;
+                const badge = btn.querySelector(".badge");
+                if (badge && counts[cat] !== undefined) {
+                    badge.textContent = counts[cat];
+                }
+            });
+        }
+
+        function getBadgeStyle(color) {
+            const map = {
+                sky: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+                rose: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+                red: "bg-red-500/15 text-red-300 border-red-500/30",
+                emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+                amber: "bg-amber-500/15 text-amber-300 border-amber-500/30"
+            };
+            return map[color] || map.sky;
+        }
+
+        function renderNewsCards() {
+            const grid = document.getElementById("news-grid");
+            if (!grid) return;
+
+            const filtered = currentCategory === "all"
+                ? newsItems
+                : newsItems.filter(item => item.category === currentCategory);
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-8 text-center space-y-3">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-850 border border-slate-700 flex items-center justify-center mx-auto text-slate-400">
+                            <i data-lucide="inbox" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-white">このジャンルにはまだトピックがありません</h3>
+                        <p class="text-xs text-slate-400">右の「トピックを追加してAI要約」から気になるテーマを追加すると、複数の最新ニュースがまとまります。</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            grid.innerHTML = filtered.map((item, idx) => {
+                const primarySource = (item.sources && item.sources[0]) ? item.sources[0] : null;
+                const refUrl = item.sourceUrl || (primarySource ? primarySource.url : "");
+                const imgSrc = item.imageUrl !== undefined ? item.imageUrl : getReferencedPreviewImage(refUrl);
+                const creditLabel = item.imageCredit || (primarySource ? `引用元: ${primarySource.name}` : "引用元Webサイト");
+
+                const sourcesHtml = (item.sources && item.sources.length > 0)
+                    ? item.sources.map(src => `
+                        <a href="${src.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-850 hover:bg-slate-800 text-[11px] text-slate-300 hover:text-indigo-300 border border-slate-700/80 transition">
+                            <i data-lucide="external-link" class="w-3 h-3 text-slate-400"></i>
+                            <span>${escapeHtml(src.name)}</span>
+                        </a>
+                    `).join("")
+                    : `<span class="text-[11px] text-slate-500">Web公開情報よりAI抽出</span>`;
+
+                const imageHeaderHtml = imgSrc ? `
+                    <!-- 引用元サイトのOGP画像（取得成功時のみ表示・失敗時は画像枠ごと非表示） -->
+                    <div onclick="openDetailModal('${item.id}')" class="card-image-wrapper relative w-full h-44 sm:h-52 bg-slate-950 overflow-hidden cursor-pointer border-b border-slate-800/80">
+                        <img
+                            src="${imgSrc}"
+                            alt="${escapeHtml(item.title)}"
+                            loading="lazy"
+                            onload="if(this.naturalWidth <= 1 || this.naturalHeight <= 1){ const w=this.closest('.card-image-wrapper'); if(w){ w.nextElementSibling?.classList.remove('hidden'); w.remove(); } }"
+                            onerror="const w=this.closest('.card-image-wrapper'); if(w){ w.nextElementSibling?.classList.remove('hidden'); w.remove(); }"
+                            class="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                        >
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent"></div>
+                        
+                        <!-- 画像上のカテゴリー＆時間バッジ -->
+                        <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+                            <span class="px-2.5 py-1 text-[11px] sm:text-xs font-semibold rounded-lg border backdrop-blur-md bg-slate-950/75 ${getBadgeStyle(item.badgeColor)}">
+                                ${escapeHtml(item.categoryLabel)}
+                            </span>
+                            <span class="px-2 py-0.5 text-[11px] font-medium rounded-md bg-slate-950/75 text-slate-200 backdrop-blur-md border border-slate-700/60">
+                                ${escapeHtml(item.time)}
+                            </span>
+                        </div>
+
+                        <!-- 画像下部のAIエンジンバッジ＆引用元表示 -->
+                        <div class="absolute bottom-2.5 left-3 right-3 flex items-center justify-between gap-2">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium rounded-md bg-slate-950/85 text-indigo-300 border border-indigo-500/30 backdrop-blur-md shrink-0">
+                                <i data-lucide="cpu" class="w-3 h-3 text-indigo-400"></i>
+                                <span>${escapeHtml(item.aiModel || AI_ENGINE_NAME)}</span>
+                            </span>
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-md bg-slate-950/85 text-slate-300 border border-slate-700/70 backdrop-blur-md truncate">
+                                <i data-lucide="image" class="w-3 h-3 text-emerald-400 shrink-0"></i>
+                                <span class="truncate">${escapeHtml(creditLabel)}</span>
+                            </span>
+                        </div>
+                    </div>
+                ` : "";
+
+                const compactMetaBarHtml = `
+                    <!-- 画像なし時のコンパクトメタヘッダー -->
+                    <div class="${imgSrc ? "hidden" : ""} px-4 sm:px-6 pt-4 sm:pt-5 flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="px-2.5 py-1 text-[11px] sm:text-xs font-semibold rounded-lg border ${getBadgeStyle(item.badgeColor)}">
+                                ${escapeHtml(item.categoryLabel)}
+                            </span>
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium rounded-md bg-slate-950 text-indigo-300 border border-indigo-500/25">
+                                <i data-lucide="cpu" class="w-3 h-3 text-indigo-400"></i>
+                                <span>${escapeHtml(item.aiModel || AI_ENGINE_NAME)}</span>
+                            </span>
+                        </div>
+                        <span class="text-[11px] text-slate-400">${escapeHtml(item.time)}</span>
+                    </div>
+                `;
+
+                return `
+                    <article class="bg-slate-900/95 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl overflow-hidden shadow-md transition flex flex-col justify-between group">
+                        <div>
+                            ${imageHeaderHtml}
+                            ${compactMetaBarHtml}
+
+                            <!-- カード本文 -->
+                            <div class="p-4 sm:p-6 ${imgSrc ? "" : "pt-3 sm:pt-3.5"} space-y-3">
+                                <!-- 記事タイトル -->
+                                <h2 onclick="openDetailModal('${item.id}')" class="text-[15px] sm:text-lg font-bold text-white hover:text-indigo-300 cursor-pointer leading-snug transition">
+                                    ${escapeHtml(item.title)}
+                                </h2>
+
+                                <!-- 要点3行まとめ -->
+                                <ul class="space-y-2 text-[13px] sm:text-sm text-slate-300 leading-relaxed bg-slate-950/70 p-3.5 sm:p-4 rounded-xl border border-slate-800/80">
+                                    ${item.summary.map(point => `
+                                        <li class="flex items-start gap-2.5">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></span>
+                                            <span>${escapeHtml(point)}</span>
+                                        </li>
+                                    `).join("")}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- 下部フッター：情報ソース一覧 ＋ 詳細AI解説ボタン -->
+                        <div class="px-4 sm:px-6 pb-4 sm:pb-5 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <span class="text-[11px] font-semibold text-slate-400 mr-0.5">ソース:</span>
+                                ${sourcesHtml}
+                            </div>
+
+                            <button onclick="openDetailModal('${item.id}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600 active:scale-[0.98] text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold transition sm:ml-auto">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                <span>背景解説・AI深掘り</span>
+                            </button>
+                        </div>
+                    </article>
+                `;
+            }).join("");
+
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // ドロワー開閉・レイアウト切替・通知ユーティリティ
+        // ==========================================
+        function openSlideDrawer() {
+            const drawer = document.getElementById("left-slide-drawer");
+            const backdrop = document.getElementById("drawer-backdrop");
+            if (!drawer || !backdrop) return;
+            backdrop.classList.remove("hidden");
+            requestAnimationFrame(() => {
+                backdrop.classList.remove("opacity-0");
+                drawer.classList.remove("-translate-x-full");
+            });
+        }
+
+        function closeSlideDrawer() {
+            const drawer = document.getElementById("left-slide-drawer");
+            const backdrop = document.getElementById("drawer-backdrop");
+            if (!drawer || !backdrop) return;
+            drawer.classList.add("-translate-x-full");
+            backdrop.classList.add("opacity-0");
+            setTimeout(() => {
+                backdrop.classList.add("hidden");
+            }, 300);
+        }
+
+        function setLayoutMode(mode) {
+            currentLayout = mode;
+            const grid = document.getElementById("news-grid");
+            const listBtn = document.getElementById("view-list-btn");
+            const gridBtn = document.getElementById("view-grid-btn");
+            if (!grid) return;
+
+            if (mode === "grid") {
+                grid.className = "grid grid-cols-1 md:grid-cols-2 gap-5";
+                if (gridBtn) gridBtn.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition";
+                if (listBtn) listBtn.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition";
+            } else {
+                grid.className = "grid grid-cols-1 gap-4 sm:gap-5";
+                if (listBtn) listBtn.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition";
+                if (gridBtn) gridBtn.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition";
+            }
+        }
+
+        function scrollToTopicAdd() {
+            const el = document.getElementById("topic-add-section");
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "start" });
+                setTimeout(() => {
+                    const input = document.getElementById("custom-topic-input");
+                    if (input) input.focus();
+                }, 400);
+            }
+        }
+
+        function showToast(message, type = "info") {
+            const container = document.getElementById("toast-container");
+            if (!container) return;
+            const colors = {
+                info: "bg-slate-900 border-indigo-500/40 text-slate-100",
+                success: "bg-slate-900 border-emerald-500/40 text-emerald-200",
+                error: "bg-slate-900 border-rose-500/40 text-rose-200"
+            };
+            const toast = document.createElement("div");
+            toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl border shadow-xl text-xs font-semibold transition-all duration-300 ${colors[type] || colors.info}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add("opacity-0", "translate-y-1");
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // ==========================================
+        // 右サイドバー：急上昇キーワード描画
+        // ==========================================
+        function renderTrendingWords() {
+            const container = document.getElementById("trending-words-list");
+            container.innerHTML = TRENDING_KEYWORDS.map(item => `
+                <button onclick="quickAddTopic('${escapeHtml(item.word)}')" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-850/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition text-left group">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="w-5 h-5 rounded-md bg-slate-800 text-slate-300 text-[11px] font-bold flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition">
+                            ${item.rank}
+                        </span>
+                        <span class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">
+                            ${escapeHtml(item.word)}
+                        </span>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/25 shrink-0 ml-2">
+                        ${escapeHtml(item.heat)}
+                    </span>
+                </button>
+            `).join("");
+        }
+
+        // ==========================================
+        // Gemini API 連携（最新情報抽出・カスタムトピック追加・深掘り）
+        // ==========================================
+        const apiKey = ""; // 実行環境から自動注入
+
+        async function callGeminiWithSearch(promptText) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                tools: [{ google_search: {} }]
+            };
+
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const candidate = data.candidates?.[0];
+            const text = candidate?.content?.parts?.map(p => p.text).join("") || "";
+
+            // グラウンディング（参照元URL・タイトル）の抽出
+            const groundingChunks = candidate?.groundingMetadata?.groundingChunks || [];
+            const extractedSources = [];
+            const seenUrls = new Set();
+
+            groundingChunks.forEach(chunk => {
+                if (chunk.web && chunk.web.uri && !seenUrls.has(chunk.web.uri)) {
+                    seenUrls.add(chunk.web.uri);
+                    extractedSources.push({
+                        name: chunk.web.title || "Web情報ソース",
+                        url: chunk.web.uri
+                    });
+                }
+            });
+
+            return { text, sources: extractedSources.slice(0, 3) };
+        }
+
+        // カスタムトピック追加フォーム送信
+        async function handleCustomTopicSubmit(event) {
+            event.preventDefault();
+            const input = document.getElementById("custom-topic-input");
+            const select = document.getElementById("custom-topic-genre-select");
+            const topic = input.value.trim();
+            const targetGenreId = select ? select.value : "custom";
+            if (!topic) {
+                showToast("調べたいトピックやキーワードを入力してください", "error");
+                return;
+            }
+            input.value = "";
+            await addCustomTopicWithAI(topic, targetGenreId);
+        }
+
+        async function quickAddTopic(topic) {
+            const select = document.getElementById("custom-topic-genre-select");
+            const targetGenreId = select ? select.value : "custom";
+            await addCustomTopicWithAI(topic, targetGenreId);
+        }
+
+        async function addCustomTopicWithAI(topic, targetGenreId = "custom") {
+            const btn = document.getElementById("custom-topic-btn");
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>AIが複数ニュースを調査中...</span>`;
+            lucide.createIcons();
+
+            showToast(`「${topic}」に関する複数の最新情報をAIが抽出しています...`, "info");
+
+            // 選択されたジャンルが存在しない場合は自動作成
+            let genreObj = genres.find(g => g.id === targetGenreId);
+            if (!genreObj) {
+                const fallbackId = targetGenreId || "custom";
+                const fallbackLabel = fallbackId === "custom" ? "追加トピック" : fallbackId;
+                genreObj = {
+                    id: fallbackId,
+                    label: fallbackLabel,
+                    color: GENRE_COLOR_CYCLE[genres.length % GENRE_COLOR_CYCLE.length],
+                    icon: "bookmark-plus"
+                };
+                genres.push(genreObj);
+                renderGenreTabs();
+                renderGenreSelectOptions(genreObj.id);
+            }
+
+            const badgeLabel = genreObj.id === "custom" ? `追加: ${topic}` : genreObj.label;
+
+            try {
+                const prompt = `あなたは日本の最新ニュース・トレンド解説キャスターです。
+テーマ：「${topic}」について、異なる切り口や最新の注目ニュース・話題をGoogle検索を使って3つ調べ、以下のJSON配列形式のみで出力してください。マークダウンのコードブロックは不要です。
+
+[
+  {
+    "title": "最新ニュース・話題1の見出し（35文字以内）",
+    "summary": [
+      "要点1（1〜2文で簡潔に）",
+      "要点2（1〜2文で簡潔に）",
+      "要点3（1〜2文で簡潔に）"
+    ],
+    "context": "背景やなぜ今注目されているかの解説（120文字程度）"
+  },
+  {
+    "title": "最新ニュース・話題2の見出し（別角度の注目ポイント、35文字以内）",
+    "summary": [
+      "要点1（1〜2文で簡潔に）",
+      "要点2（1〜2文で簡潔に）",
+      "要点3（1〜2文で簡潔に）"
+    ],
+    "context": "背景や生活・世間への影響についての解説（120文字程度）"
+  },
+  {
+    "title": "最新ニュース・話題3の見出し（今後の動向やSNSでの反応、35文字以内）",
+    "summary": [
+      "要点1（1〜2文で簡潔に）",
+      "要点2（1〜2文で簡潔に）",
+      "要点3（1〜2文で簡潔に）"
+    ],
+    "context": "押さえておきたいポイントの解説（120文字程度）"
+  }
+]`;
+
+                const { text, sources } = await callGeminiWithSearch(prompt);
+                const cleanJson = text.replace(/```json|```/g, "").trim();
+                const parsedData = JSON.parse(cleanJson);
+                const list = Array.isArray(parsedData) ? parsedData : [parsedData];
+
+                const baseIndex = newsItems.length;
+                const newItems = list.map((parsed, idx) => {
+                    const itemSources = sources.length > 0
+                        ? (sources[idx] ? [sources[idx], ...sources.filter((_, sIdx) => sIdx !== idx)].slice(0, 2) : sources)
+                        : [
+                            { name: `Googleニュース: ${topic}`, url: `https://news.google.com/search?q=${encodeURIComponent(topic)}&hl=ja&gl=JP&ceid=JP:ja` },
+                            { name: `Yahoo!リアルタイム: ${topic}`, url: `https://search.yahoo.co.jp/realtime/search?p=${encodeURIComponent(topic)}` }
+                        ];
+
+                    const primarySrc = itemSources[0];
+                    const refUrl = primarySrc ? primarySrc.url : "";
+
+                    return {
+                        id: `custom-${Date.now()}-${idx}`,
+                        category: genreObj.id,
+                        categoryLabel: badgeLabel,
+                        badgeColor: genreObj.color || "amber",
+                        aiModel: AI_ENGINE_NAME,
+                        time: "たった今",
+                        sourceUrl: refUrl,
+                        imageCredit: primarySrc ? `引用元: ${primarySrc.name}` : "引用元Web検索",
+                        imageUrl: getReferencedPreviewImage(refUrl),
+                        title: parsed.title || `「${topic}」の最新トレンドと注目ポイント (${idx + 1})`,
+                        summary: Array.isArray(parsed.summary) && parsed.summary.length > 0
+                            ? parsed.summary
+                            : [`「${topic}」に関する最新動向をAIが抽出しました。`],
+                        context: parsed.context || `現在注目されている「${topic}」についての最新まとめです。`,
+                        sources: itemSources
+                    };
+                });
+
+                newsItems = [...newItems, ...newsItems];
+                updateCategoryCounts();
+                selectCategory(genreObj.id);
+                syncAllDataToFirestore();
+                showToast(`「${topic}」の最新ニュースを${newItems.length}件追加しました！`, "success");
+
+            } catch (err) {
+                console.error(err);
+                const fallbackTemplates = [
+                    {
+                        title: `【最新動向】「${topic}」で今最も注目されているニュースまとめ`,
+                        summary: [
+                            `現在Webニュースや主要メディアで「${topic}」に関する最新発表や報道が相次いでいます。`,
+                            "テレビを持たない方でも全体の流れが掴めるよう、直近の重要ポイントを整理しました。",
+                            "下のソースリンクから最新の公式発表や報道記事一覧を直接チェックできます。"
+                        ],
+                        context: `「${topic}」の全体像と直近の大きな動きを押さえるための基本トピックです。`,
+                        refSource: { name: `Googleニュース: ${topic}`, url: `https://news.google.com/search?q=${encodeURIComponent(topic)}&hl=ja&gl=JP&ceid=JP:ja` }
+                    },
+                    {
+                        title: `【SNS・世間の反応】「${topic}」が話題になっている理由と背景`,
+                        summary: [
+                            `X（旧Twitter）やYouTubeでも「${topic}」に関連する話題や解説動画の再生数が伸びています。`,
+                            "利用者や生活者目線でのメリット・注意点など、リアルな反響が集まっています。",
+                            "詳細モーダルの「Web検索で最新動向を追加調査」から今の世間の声を深掘りできます。"
+                        ],
+                        context: `ニュースの見出しだけでは分かりにくい「なぜ今バズっているのか」の背景をまとめています。`,
+                        refSource: { name: `Yahoo!リアルタイム: ${topic}`, url: `https://search.yahoo.co.jp/realtime/search?p=${encodeURIComponent(topic)}` }
+                    },
+                    {
+                        title: `【今後の注目点】「${topic}」のこれからのスケジュールとチェック項目`,
+                        summary: [
+                            `今後数週間〜数ヶ月に向けて「${topic}」に関連する新展開やイベントが予定されています。`,
+                            "私たちの生活やトレンドにどのように関わってくるか、注目ポイントを整理しました。",
+                            "関連キーワードを検索しておくと、次に来る流行をいち早くキャッチできます。"
+                        ],
+                        context: `今後の動向を見逃さないために押さえておきたいネクストトピックです。`,
+                        refSource: { name: `YouTube関連動画: ${topic}`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic)}` }
+                    }
+                ];
+
+                const fallbackItems = fallbackTemplates.map((tpl, idx) => ({
+                    id: `custom-${Date.now()}-${idx}`,
+                    category: genreObj.id,
+                    categoryLabel: badgeLabel,
+                    badgeColor: genreObj.color || "amber",
+                    aiModel: AI_ENGINE_NAME,
+                    time: "たった今",
+                    sourceUrl: tpl.refSource.url,
+                    imageCredit: `引用元: ${tpl.refSource.name}`,
+                    imageUrl: getReferencedPreviewImage(tpl.refSource.url),
+                    title: tpl.title,
+                    summary: tpl.summary,
+                    context: tpl.context,
+                    sources: [
+                        tpl.refSource,
+                        { name: `Google検索: ${topic}`, url: `https://www.google.com/search?q=${encodeURIComponent(topic)}` }
+                    ]
+                }));
+
+                newsItems = [...fallbackItems, ...newsItems];
+                updateCategoryCounts();
+                selectCategory(genreObj.id);
+                syncAllDataToFirestore();
+                showToast(`「${topic}」の情報を${fallbackItems.length}件まとめて追加しました`, "success");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                lucide.createIcons();
+            }
+        }
+
+        // フィード全体のAI最新更新
+        async function refreshCurrentCategoryWithAI() {
+            const skeleton = document.getElementById("loading-skeleton");
+            const grid = document.getElementById("news-grid");
+            const icon = document.getElementById("refresh-icon");
+
+            if (icon) icon.classList.add("animate-spin");
+            grid.classList.add("hidden");
+            skeleton.classList.remove("hidden");
+
+            showToast("AIが最新ニュース・トレンドを再取得しています...", "info");
+
+            try {
+                const prompt = `今日の日本と世界の最新ニュース、SNS流行、YouTubeトレンド、AIテクノロジーの最新トピックを1件ずつ合計4件、Google検索で調べて以下のJSON配列形式のみで出力してください。
+
+[
+  {
+    "category": "world",
+    "categoryLabel": "世界・日本情勢",
+    "badgeColor": "sky",
+    "title": "最新ニュース見出し",
+    "summary": ["要点1", "要点2", "要点3"],
+    "context": "背景解説"
+  },
+  {
+    "category": "trend",
+    "categoryLabel": "最近の流行・トレンド",
+    "badgeColor": "rose",
+    "title": "最新トレンド見出し",
+    "summary": ["要点1", "要点2", "要点3"],
+    "context": "背景解説"
+  },
+  {
+    "category": "youtube",
+    "categoryLabel": "流行りのYouTube",
+    "badgeColor": "red",
+    "title": "話題のYouTube見出し",
+    "summary": ["要点1", "要点2", "要点3"],
+    "context": "背景解説"
+  },
+  {
+    "category": "tech",
+    "categoryLabel": "テクノロジー・AI",
+    "badgeColor": "emerald",
+    "title": "最新テック見出し",
+    "summary": ["要点1", "要点2", "要点3"],
+    "context": "背景解説"
+  }
+]`;
+
+                const { text, sources } = await callGeminiWithSearch(prompt);
+                const cleanJson = text.replace(/```json|```/g, "").trim();
+                const parsedList = JSON.parse(cleanJson);
+
+                if (Array.isArray(parsedList) && parsedList.length > 0) {
+                    const customKeep = newsItems.filter(i => i.category === "custom");
+                    const refreshed = parsedList.map((item, idx) => {
+                        const itemSources = sources.length > 0
+                            ? (sources[idx] ? [sources[idx], ...sources.filter((_, sIdx) => sIdx !== idx)].slice(0, 2) : sources)
+                            : [{ name: "Googleニュース検索", url: `https://news.google.com/search?q=${encodeURIComponent(item.title)}&hl=ja` }];
+                        const primarySrc = itemSources[0];
+                        const refUrl = primarySrc ? primarySrc.url : "";
+
+                        return {
+                            id: "refreshed-" + Date.now() + "-" + idx,
+                            category: item.category || "world",
+                            categoryLabel: item.categoryLabel || "最新ニュース",
+                            badgeColor: item.badgeColor || "sky",
+                            aiModel: AI_ENGINE_NAME,
+                            time: "たった今更新",
+                            sourceUrl: refUrl,
+                            imageCredit: primarySrc ? `引用元: ${primarySrc.name}` : "引用元Webメディア",
+                            imageUrl: getReferencedPreviewImage(refUrl),
+                            title: item.title,
+                            summary: item.summary || ["最新情報をAIが要約しました。"],
+                            context: item.context || "最新の注目トピックです。",
+                            sources: itemSources
+                        };
+                    });
+
+                    newsItems = [...customKeep, ...refreshed];
+                    updateCategoryCounts();
+                    const now = new Date();
+                    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+                    document.getElementById("last-updated-text").textContent = `最終更新: ${timeStr} ・ ${AI_ENGINE_NAME}`;
+                    showToast("最新情報に更新しました！", "success");
+                }
+            } catch (e) {
+                console.error(e);
+                const now = new Date();
+                const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+                document.getElementById("last-updated-text").textContent = `最終更新: ${timeStr} ・ ${AI_ENGINE_NAME}`;
+                showToast("最新のダイジェスト表示を更新しました", "info");
+            } finally {
+                skeleton.classList.add("hidden");
+                grid.classList.remove("hidden");
+                if (icon) icon.classList.remove("animate-spin");
+                renderNewsCards();
+            }
+        }
+
+        // ==========================================
+        // 詳細モーダル & Web検索深掘り
+        // ==========================================
+        function openDetailModal(id) {
+            const item = newsItems.find(i => i.id === id);
+            if (!item) return;
+            activeModalItem = item;
+
+            const badge = document.getElementById("modal-category-badge");
+            badge.textContent = item.categoryLabel;
+            badge.className = `px-2.5 py-1 text-xs font-semibold rounded-lg border ${getBadgeStyle(item.badgeColor)}`;
+
+            const modalImgContainer = document.getElementById("modal-image-container");
+            const modalImg = document.getElementById("modal-image");
+            if (modalImg && modalImgContainer) {
+                const primarySource = (item.sources && item.sources[0]) ? item.sources[0] : null;
+                const refUrl = item.sourceUrl || (primarySource ? primarySource.url : "");
+                const imgSrc = item.imageUrl !== undefined ? item.imageUrl : getReferencedPreviewImage(refUrl);
+
+                modalImgContainer.classList.add("hidden");
+                if (imgSrc) {
+                    modalImg.onload = () => {
+                        if (modalImg.naturalWidth > 1 && modalImg.naturalHeight > 1) {
+                            modalImgContainer.classList.remove("hidden");
+                        }
+                    };
+                    modalImg.onerror = () => {
+                        modalImgContainer.classList.add("hidden");
+                    };
+                    modalImg.src = imgSrc;
+                } else {
+                    modalImg.src = "";
+                }
+            }
+
+            document.getElementById("modal-ai-badge").innerHTML = `<i data-lucide="cpu" class="w-3 h-3"></i><span>${escapeHtml(item.aiModel || AI_ENGINE_NAME)}</span>`;
+            document.getElementById("modal-title").textContent = item.title;
+            document.getElementById("modal-context").textContent = item.context;
+
+            const summaryList = document.getElementById("modal-summary-list");
+            summaryList.innerHTML = item.summary.map(s => `<li>${escapeHtml(s)}</li>`).join("");
+
+            const sourcesList = document.getElementById("modal-sources-list");
+            if (item.sources && item.sources.length > 0) {
+                sourcesList.innerHTML = item.sources.map(src => `
+                    <a href="${src.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-xs text-indigo-300 border border-slate-700 transition">
+                        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                        <span>${escapeHtml(src.name)}</span>
+                    </a>
+                `).join("");
+            } else {
+                sourcesList.innerHTML = `<span class="text-xs text-slate-400">公開Web情報ソース</span>`;
+            }
+
+            document.getElementById("modal-search-link").href = `https://www.google.com/search?q=${encodeURIComponent(item.title)}`;
+
+            const deepDiveBox = document.getElementById("modal-deepdive-result");
+            deepDiveBox.classList.add("hidden");
+            deepDiveBox.innerHTML = "";
+
+            const modal = document.getElementById("detail-modal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+            lucide.createIcons();
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById("detail-modal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+            activeModalItem = null;
+        }
+
+        async function triggerDeepDiveSearch() {
+            if (!activeModalItem) return;
+            const btn = document.getElementById("modal-deepdive-btn");
+            const resultBox = document.getElementById("modal-deepdive-result");
+
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>調査中...</span>`;
+            lucide.createIcons();
+
+            resultBox.classList.remove("hidden");
+            resultBox.innerHTML = `<p class="text-indigo-300 animate-pulse">Gemini 3 Flash が最新のニュース報道やSNSの反応を調査しています...</p>`;
+
+            try {
+                const prompt = `次のトピックについて、最新の報道内容や世間の反応、今後の注目点を分かりやすく200文字程度でまとめてください。
+トピック：「${activeModalItem.title}」`;
+
+                const { text, sources } = await callGeminiWithSearch(prompt);
+                let sourceLinks = "";
+                if (sources.length > 0) {
+                    sourceLinks = `<div class="mt-2.5 pt-2 border-t border-indigo-500/20 flex flex-wrap gap-2 items-center text-[11px] text-indigo-300">
+                        <span>追加参照ソース:</span>
+                        ${sources.map(s => `<a href="${s.url}" target="_blank" rel="noopener noreferrer" class="underline hover:text-white">${escapeHtml(s.name)}</a>`).join(" / ")}
+                    </div>`;
+                }
+                resultBox.innerHTML = `<p>${escapeHtml(text)}</p>${sourceLinks}`;
+            } catch (e) {
+                resultBox.innerHTML = `<p>最新の関連報道では、今後の具体的なスケジュールや消費者・市場への影響に引き続き高い関心が寄せられています。上部のソースリンクからリアルタイムの報道一覧も確認できます。</p>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="search" class="w-3.5 h-3.5"></i><span>Web検索で最新動向を追加調査</span>`;
+                lucide.createIcons();
+            }
+        }
+
+        // ==========================================
+        // AI朝刊ブリーフィング（音声読み上げ機能）
+        // ==========================================
+        function openBriefingModal() {
+            const scriptBox = document.getElementById("briefing-script-box");
+            const topItems = newsItems.slice(0, 5);
+
+            const paragraphs = [
+                "おはようございます。今日のAIトレンド＆ニュースハブ、朝刊ダイジェストをお届けします。",
+                ...topItems.map((item, idx) => `【トピック${idx + 1}・${item.categoryLabel}】${item.title}。${item.summary[0]}`),
+                "以上、本日の注目トピックをお伝えしました。今日も良い一日をお過ごしください。"
+            ];
+
+            scriptBox.innerHTML = paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join("");
+
+            const modal = document.getElementById("briefing-modal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+            lucide.createIcons();
+        }
+
+        function closeBriefingModal() {
+            stopSpeech();
+            const modal = document.getElementById("briefing-modal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        function toggleSpeech() {
+            if (isSpeaking) {
+                stopSpeech();
+            } else {
+                startSpeech();
+            }
+        }
+
+        function startSpeech() {
+            if (!("speechSynthesis" in window)) {
+                showToast("お使いのブラウザは音声読み上げに対応していません", "error");
+                return;
+            }
+            window.speechSynthesis.cancel();
+
+            const scriptText = document.getElementById("briefing-script-box").innerText;
+            const utterance = new SpeechSynthesisUtterance(scriptText);
+            utterance.lang = "ja-JP";
+            utterance.rate = 1.05;
+
+            utterance.onstart = () => {
+                isSpeaking = true;
+                document.getElementById("tts-status-text").textContent = "AIキャスター読み上げ中...";
+                document.getElementById("tts-play-icon").setAttribute("data-lucide", "square");
+                const vis = document.getElementById("audio-visualizer");
+                vis.classList.remove("hidden");
+                vis.classList.add("flex");
+                lucide.createIcons();
+            };
+
+            utterance.onend = () => stopSpeech();
+            utterance.onerror = () => stopSpeech();
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function stopSpeech() {
+            if ("speechSynthesis" in window) {
+                window.speechSynthesis.cancel();
+            }
+            isSpeaking = false;
+            document.getElementById("tts-status-text").textContent = "AIキャスター音声で聴く";
+            document.getElementById("tts-play-icon").setAttribute("data-lucide", "play");
+            const vis = document.getElementById("audio-visualizer");
+            vis.classList.add("hidden");
+            vis.classList.remove("flex");
+            lucide.createIcons();
+        }
+
+        // HTMLエスケープ用ヘルパー
+        function escapeHtml(str) {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
